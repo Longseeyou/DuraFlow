@@ -1,10 +1,10 @@
 package workflow
 
 import (
-	"time"
-
 	"github.com/Longseeyou/DuraFlow/internal/shared/model"
+	"github.com/Longseeyou/DuraFlow/internal/user"
 	"github.com/google/uuid"
+	"time"
 )
 
 type WorkflowDefinitionStatus int
@@ -25,10 +25,21 @@ const (
 	CANCELLED
 )
 
+type Workflow struct {
+	model.BaseModel
+	UserId      uuid.UUID
+	User        user.User
+	Name        string
+	Description string
+}
+
 type WorkflowDefinition struct {
 	model.BaseModel
-	Name   string
-	Status WorkflowDefinitionStatus
+	WorkflowId  uuid.UUID
+	Workflow    Workflow
+	Description string
+	Version     uint
+	Status      WorkflowDefinitionStatus
 }
 
 type WorkflowRun struct {
