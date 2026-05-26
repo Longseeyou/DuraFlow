@@ -14,10 +14,10 @@ const (
 
 type User struct {
 	model.BaseModel
-	email 			String	`gorm:"unique"`
-	name 			String 
-	password_hash 	String
-	role 			Role
-	isActive 		Bool
+	Email 			string	`gorm:"unique"`
+	Name 			string 
+	PasswordHash 	string
+	Role 			role
+	IsActive 		bool
 
 }
