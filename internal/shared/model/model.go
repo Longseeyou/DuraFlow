@@ -20,3 +20,15 @@ func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
 	}
 	return nil
 }
+
+func (b BaseModel) GetID() uuid.UUID {
+	return b.ID
+}
+
+func (b BaseModel) GetCreatedAt() time.Time {
+	return b.CreatedAt
+}
+
+func (b BaseModel) GetUpdatedAt() time.Time {
+	return b.UpdatedAt
+}
