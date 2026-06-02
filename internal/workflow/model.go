@@ -35,11 +35,10 @@ type Workflow struct {
 
 type WorkflowDefinition struct {
 	model.BaseModel
-	WorkflowId  uuid.UUID
-	Workflow    Workflow
-	Description string
-	Version     uint
-	Status      WorkflowDefinitionStatus
+	WorkflowId uuid.UUID
+	Workflow   Workflow
+	Version    uint
+	Status     WorkflowDefinitionStatus
 }
 
 type WorkflowRun struct {
