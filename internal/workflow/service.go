@@ -81,8 +81,17 @@ func (workflowService WorkflowService) CreateWorkflowDefinition(ctx context.Cont
 	return workflowDefinitionModelToResponseDto(wD)
 }
 
+func (workflowService WorkflowService) IsUserAndWorkflowExists(ctx context.Context, uId uuid.UUID, wId uuid.UUID) bool {
+	_, error := workflowService.Repository.GetWorkflowByUserAndId(ctx, uId, wId)
+	return error != nil
+}
+
 func (workflowService WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(ctx context.Context, uId uuid.UUID, wId uuid.UUID) []WorkflowDefinitionResponseDto {
-	wD, error := workflowService.Repository.GetWorkflowDefinitionByUserAndWorkflow(ctx, uId, wId)
+	if !workflowService.IsUserAndWorkflowExists(ctx, uId, wId) {
+
+	}
+
+	wD, error := workflowService.Repository.GetWorkflowDefinitionByWorkflow(ctx, wId)
 	if error != nil {
 
 	}
@@ -93,42 +102,57 @@ func (workflowService WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(ct
 	return wDDto
 }
 
-//
-// func (workflowService WorkflowService) GetWorkflowByUserAndId(ctx context.Context, uId uuid.UUID, wId uuid.UUID) WorkflowResponseDto {
-// 	w, error := workflowService.Repository.GetWorkflowByUserAndId(ctx, uId, wId)
-// 	if error != nil {
-//
-// 	}
-// 	return workflowModelToResponseDto(w)
-// }
-//
-// func (workflowService WorkflowService) UpdateWorkflowById(ctx context.Context, uId uuid.UUID, wId uuid.UUID, wDto WorkflowRequestDto) WorkflowResponseDto {
-// 	newW := map[string]any{}
-// 	if wDto.Name != nil {
-// 		newW["name"] = *wDto.Name
-// 	}
-// 	if wDto.Description != nil {
-// 		newW["description"] = *wDto.Description
-// 	}
-// 	w, error := workflowService.Repository.UpdateWorkflowById(ctx, uId, wId, newW)
-// 	if error != nil {
-//
-// 	}
-// 	return workflowModelToResponseDto(w)
-// }
-//
-// func (workflowService WorkflowService) SoftDeleteWorkflow(ctx context.Context, uId uuid.UUID, wId uuid.UUID) WorkflowResponseDto {
-// 	w, error := workflowService.Repository.SoftDeleteWorkflow(ctx, uId, wId)
-// 	if error != nil {
-//
-// 	}
-// 	return workflowModelToResponseDto(w)
-// }
-//
-// func (workflowService WorkflowService) HardDeleteWorkflow(ctx context.Context, uId uuid.UUID, wId uuid.UUID) WorkflowResponseDto {
-// 	w, error := workflowService.Repository.HardDeleteWorkflow(ctx, uId, wId)
-// 	if error != nil {
-//
-// 	}
-// 	return workflowModelToResponseDto(w)
-// }
+func (workflowService WorkflowService) GetWorkflowDefinitionByUserAndWorkflowAndId(ctx context.Context, uId uuid.UUID, wId uuid.UUID, wDId uuid.UUID) WorkflowDefinitionResponseDto {
+	if !workflowService.IsUserAndWorkflowExists(ctx, uId, wId) {
+
+	}
+
+	wD, error := workflowService.Repository.GetWorkflowDefinitionByWorkflowAndId(ctx, wId, wDId)
+	if error != nil {
+
+	}
+	return workflowDefinitionModelToResponseDto(wD)
+}
+
+func (workflowService WorkflowService) UpdateWorkflowDefinitionById(ctx context.Context, uId uuid.UUID, wId uuid.UUID, wDId uuid.UUID, wDDto WorkflowDefinitionRequestDto) WorkflowDefinitionResponseDto {
+	if !workflowService.IsUserAndWorkflowExists(ctx, uId, wId) {
+
+	}
+
+	newWD := map[string]any{}
+	if wDDto.Version != nil {
+		newWD["version"] = *wDDto.Version
+	}
+	if wDDto.Status != nil {
+		newWD["status"] = *wDDto.Status
+	}
+	wD, error := workflowService.Repository.UpdateWorkflowDefinitionById(ctx, wId, wDId, newWD)
+	if error != nil {
+
+	}
+	return workflowDefinitionModelToResponseDto(wD)
+}
+
+func (workflowService WorkflowService) SoftDeleteWorkflowDefinition(ctx context.Context, uId uuid.UUID, wId uuid.UUID, wDId uuid.UUID) WorkflowDefinitionResponseDto {
+	if !workflowService.IsUserAndWorkflowExists(ctx, uId, wId) {
+
+	}
+
+	wD, error := workflowService.Repository.SoftDeleteWorkflowDefinition(ctx, wId, wDId)
+	if error != nil {
+
+	}
+	return workflowDefinitionModelToResponseDto(wD)
+}
+
+func (workflowService WorkflowService) HardDeleteWorkflowDefinition(ctx context.Context, uId uuid.UUID, wId uuid.UUID, wDId uuid.UUID) WorkflowDefinitionResponseDto {
+	if !workflowService.IsUserAndWorkflowExists(ctx, uId, wId) {
+
+	}
+
+	wD, error := workflowService.Repository.HardDeleteWorkflowDefinition(ctx, wId, wDId)
+	if error != nil {
+
+	}
+	return workflowDefinitionModelToResponseDto(wD)
+}
