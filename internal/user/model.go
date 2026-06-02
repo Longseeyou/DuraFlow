@@ -13,9 +13,9 @@ const (
 
 type User struct {
 	model.BaseModel
-	Email        string `gorm:"unique"`
-	Name         string
-	PasswordHash string
+	Email        string `gorm:"uniqueIndex; not null"`
+	Name         string `gorm:"not null"`
+	PasswordHash string `gorm:"not null"`
 	Role         Role
 	IsActive     bool
 }
