@@ -1,20 +1,49 @@
 package user
 
-type CreateUserRequest struct {
+import (
+	"github.com/google/uuid"
+)
+
+type CreateUserRequestDto struct {
 	Name     string `json:"name" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=6"`
-	Role     string `json:"role"`
+	Role     Role   `json:"role"`
 }
 
-type UpdateUserRequest struct {
+type CreateUserResponseDto struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type UpdateUserRequestDto struct {
 	Name     *string `json:"name,omitempty"`
 	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
 	Password *string `json:"password,omitempty" validate:"omitempty,min=6"`
-	Role     *string `json:"role,omitempty"`
+	Role     *Role   `json:"role,omitempty"`
 }
 
-type UserResponse struct {
+type UpdateUserResponseDto struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type UserRequestDto struct {
+	ID    *uuid.UUID `json:"id,omitempty"`
+	Name  *string    `json:"name,omitempty"`
+	Email *string    `json:"email,omitempty" validate:"omitempty,email"`
+}
+
+type UserResponseDto struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type DeleteUserRequestDto struct {
+	ID *uuid.UUID `json:"id,omitempty"`
+}
+
+type DeleteUserResponseDto struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
