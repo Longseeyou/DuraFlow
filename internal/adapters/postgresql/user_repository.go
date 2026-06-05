@@ -6,6 +6,7 @@ import (
 
 	"github.com/Longseeyou/DuraFlow/internal/user"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type UserRepositoryPostgres struct {
@@ -63,14 +64,9 @@ func (userRepository UserRepositoryPostgres) GetUser(ctx context.Context, u user
 }
 
 func (userRepository UserRepositoryPostgres) UpdateUser(ctx context.Context, u user.User, newUser map[string]any) (user.User, error) {
-	result := userRepository.database.WithContext(ctx).Model(&u).Where("id = ?", u.ID).Updates(newUser)
+	result := userRepository.database.WithContext(ctx).Model(&u).Clauses(clause.Returning{}).Where("id = ?", u.ID).Updates(newUser)
 	if result.Error != nil {
-		fmt.Println("TODO UpdateUser(ctx context.Context, user user.User) user.User")
-		return u, result.Error
-	}
-	result = userRepository.database.WithContext(ctx).Where("id = ?", u.ID).First(&u)
-	if result.Error != nil {
-		fmt.Println("TODO UpdateUser(ctx context.Context, user user.User) user.User")
+		fmt.Println("TODO UpdateUser(ctx context.Context, user user.User, newUser map[string]any) user.User")
 		return u, result.Error
 	}
 	return u, nil
