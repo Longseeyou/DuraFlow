@@ -62,8 +62,13 @@ func (userRepository UserRepositoryPostgres) GetUser(ctx context.Context, u user
 	return u, nil
 }
 
-func (userRepository UserRepositoryPostgres) UpdateUser(ctx context.Context, u user.User) (user.User, error) {
-	result := userRepository.database.WithContext(ctx).Save(&u)
+func (userRepository UserRepositoryPostgres) UpdateUser(ctx context.Context, u user.User, newUser map[string]any) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Model(&u).Where("id = ?", u.ID).Updates(newUser)
+	if result.Error != nil {
+		fmt.Println("TODO UpdateUser(ctx context.Context, user user.User) user.User")
+		return u, result.Error
+	}
+	result = userRepository.database.WithContext(ctx).Where("id = ?", u.ID).First(&u)
 	if result.Error != nil {
 		fmt.Println("TODO UpdateUser(ctx context.Context, user user.User) user.User")
 		return u, result.Error

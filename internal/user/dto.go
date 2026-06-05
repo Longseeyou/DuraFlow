@@ -13,10 +13,11 @@ type CreateUserRequestDto struct {
 }
 
 type UpdateUserRequestDto struct {
-	Name     *string `json:"name,omitempty"`
-	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
-	Password *string `json:"password,omitempty" validate:"omitempty,min=6"`
-	Role     *Role   `json:"role,omitempty"`
+	ID       *uuid.UUID `json:"id,omitempty"`
+	Name     *string    `json:"name,omitempty"`
+	Email    *string    `json:"email,omitempty" validate:"omitempty,email"`
+	Password *string    `json:"password,omitempty" validate:"omitempty,min=6"`
+	Role     *Role      `json:"role,omitempty"`
 }
 
 type UserRequestDto struct {
