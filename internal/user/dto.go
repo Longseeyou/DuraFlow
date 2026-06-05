@@ -5,27 +5,19 @@ import (
 )
 
 type CreateUserRequestDto struct {
-	Name     string `json:"name" validate:"required"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
-	Role     Role   `json:"role"`
-}
-
-type CreateUserResponseDto struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name            string `json:"name" validate:"required"`
+	Email           string `json:"email" validate:"required,email"`
+	Password        string `json:"password" validate:"required,min=6"`
+	RetypedPassword string `json:"retyped_password" validate:"required,eqfield=Password"`
+	Role            Role   `json:"role"`
 }
 
 type UpdateUserRequestDto struct {
-	Name     *string `json:"name,omitempty"`
-	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
-	Password *string `json:"password,omitempty" validate:"omitempty,min=6"`
-	Role     *Role   `json:"role,omitempty"`
-}
-
-type UpdateUserResponseDto struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID       *uuid.UUID `json:"id,omitempty"`
+	Name     *string    `json:"name,omitempty"`
+	Email    *string    `json:"email,omitempty" validate:"omitempty,email"`
+	Password *string    `json:"password,omitempty" validate:"omitempty,min=6"`
+	Role     *Role      `json:"role,omitempty"`
 }
 
 type UserRequestDto struct {
@@ -34,16 +26,11 @@ type UserRequestDto struct {
 	Email *string    `json:"email,omitempty" validate:"omitempty,email"`
 }
 
-type UserResponseDto struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
 type DeleteUserRequestDto struct {
 	ID *uuid.UUID `json:"id,omitempty"`
 }
 
-type DeleteUserResponseDto struct {
+type UserResponseDto struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 }
