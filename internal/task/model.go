@@ -23,15 +23,25 @@ const (
 
 type TaskDefinition struct {
 	model.BaseModel
-	WorkflowDefinitionId uuid.UUID
+	WorkflowDefinitionID uuid.UUID
 	WorkflowDefinition   workflow.WorkflowDefinition
+	Name                 string
+	Description          string
+}
+
+type TaskDependency struct {
+	model.BaseModel
+	TaskID         uuid.UUID
+	Task           TaskDefinition
+	DependOnTaskID uuid.UUID
+	DependOnTask   TaskDefinition
 }
 
 type TaskRun struct {
 	model.BaseModel
-	WorkflowRunId    uuid.UUID
+	WorkflowRunID    uuid.UUID
 	WorkflowRun      workflow.WorkflowRun
-	TaskDefinitionId uuid.UUID
+	TaskDefinitionID uuid.UUID
 	TaskDefinition   TaskDefinition
 	Status           TaskRunStatus
 	RetryCount       uint
@@ -43,10 +53,10 @@ type TaskRun struct {
 
 type TaskAttempt struct {
 	model.BaseModel
-	TaskRunId     uuid.UUID
+	TaskRunID     uuid.UUID
 	TaskRun       TaskRun
 	AttemptNumber uint
-	WorkerId      string
+	WorkerID      string
 	Status        TaskRunStatus
 	StartedAt     *time.Time
 	CompletedAt   *time.Time
@@ -55,6 +65,6 @@ type TaskAttempt struct {
 
 type TaskEvent struct {
 	model.BaseModel
-	WorkflowRunId uuid.UUID
+	WorkflowRunID uuid.UUID
 	WorkflowRun   workflow.WorkflowRun
 }

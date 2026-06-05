@@ -1,12 +1,12 @@
 package workflow
 
 import (
+	"time"
+
 	"github.com/Longseeyou/DuraFlow/internal/shared/dto"
-	"github.com/google/uuid"
 )
 
 type WorkflowRequestDto struct {
-	ID          *uuid.UUID
 	Name        *string
 	Description *string
 }
@@ -26,4 +26,16 @@ type WorkflowDefinitionResponseDto struct {
 	dto.ResponseDto
 	Version uint
 	Status  WorkflowDefinitionStatus
+}
+
+type WorkflowRunRequestDto struct {
+	Status *WorkflowRunStatus
+}
+
+type WorkflowRunResponseDto struct {
+	dto.ResponseDto
+	Status      WorkflowRunStatus
+	StartedAt   time.Time
+	CompletedAt time.Time
+	CancelledAt time.Time
 }
