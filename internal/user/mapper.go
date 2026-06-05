@@ -9,13 +9,6 @@ func UserToCreateUserRequestDto(u User) CreateUserRequestDto {
 	}
 }
 
-func UserToCreateUserResponseDto(u User) CreateUserResponseDto {
-	return CreateUserResponseDto{
-		Name:  u.Name,
-		Email: u.Email,
-	}
-}
-
 func UserToUpdateUserRequestDto(u User) UpdateUserRequestDto {
 	return UpdateUserRequestDto{
 		Name:     &u.Name,
@@ -25,8 +18,8 @@ func UserToUpdateUserRequestDto(u User) UpdateUserRequestDto {
 	}
 }
 
-func UserToUpdateUserResponseDto(u User) UpdateUserResponseDto {
-	return UpdateUserResponseDto{
+func UserToUpdateUserResponseDto(u User) UserResponseDto {
+	return UserResponseDto{
 		Name:  u.Name,
 		Email: u.Email,
 	}
@@ -53,8 +46,8 @@ func UserToDeleteUserRequestDto(u User) DeleteUserRequestDto {
 	}
 }
 
-func UserToDeleteUserResponseDto(u User) DeleteUserResponseDto {
-	return DeleteUserResponseDto{
+func UserToDeleteUserResponseDto(u User) UserResponseDto {
+	return UserResponseDto{
 		Name:  u.Name,
 		Email: u.Email,
 	}

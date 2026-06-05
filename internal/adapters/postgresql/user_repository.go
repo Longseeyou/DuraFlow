@@ -12,56 +12,61 @@ type UserRepositoryPostgres struct {
 	database *gorm.DB
 }
 
-func NewUserRepository(database *gorm.DB) UserRepositoryPostgres {
+func NewUserRepository(database *gorm.DB) user.UserRepository {
 	return UserRepositoryPostgres{database: database}
 }
 
-func (userRepository UserRepositoryPostgres) CreateUser(ctx context.Context, user user.User) user.User {
-	result := userRepository.database.WithContext(ctx).Create(&user)
+func (userRepository UserRepositoryPostgres) CreateUser(ctx context.Context, u user.User) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Create(&u)
 	if result.Error != nil {
 		fmt.Println("TODO CreateUser(ctx context.Context, user user.User) user.User")
+		return u, result.Error
 	}
-	return user
+	return u, nil
 }
 
-func (userRepository UserRepositoryPostgres) SoftDeleteUser(ctx context.Context, user user.User) user.User {
-	result := userRepository.database.WithContext(ctx).Delete(&user)
+func (userRepository UserRepositoryPostgres) SoftDeleteUser(ctx context.Context, u user.User) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Delete(&u)
 	if result.Error != nil {
 		fmt.Println("TODO SoftDeleteUser(ctx context.Context, user user.User) user.User")
-		return user
+		return u, result.Error
 	}
 
-	return user
+	return u, nil
 }
 
-func (userRepository UserRepositoryPostgres) HardDeleteUser(ctx context.Context, user user.User) user.User {
-	result := userRepository.database.WithContext(ctx).Unscoped().Delete(&user)
+func (userRepository UserRepositoryPostgres) HardDeleteUser(ctx context.Context, u user.User) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Unscoped().Delete(&u)
 	if result.Error != nil {
 		fmt.Println("TODO HardDeleteUser(ctx context.Context, user user.User) user.User")
+		return u, result.Error
 	}
-	return user
+	return u, nil
 }
 
-func (userRepository UserRepositoryPostgres) RestoreUser(ctx context.Context, user user.User) user.User {
-	result := userRepository.database.WithContext(ctx).Unscoped().Model(&user).Where("id = ?", user.ID).Update("deleted_at", nil)
+func (userRepository UserRepositoryPostgres) RestoreUser(ctx context.Context, u user.User) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Unscoped().Model(&u).Where("id = ?", u.ID).Update("deleted_at", nil)
 	if result.Error != nil {
 		fmt.Println("TODO RestoreUser(ctx context.Context, user user.User) user.User")
+		return u, result.Error
 	}
-	return user
+	return u, nil
 }
 
-func (userRepository UserRepositoryPostgres) GetUser(ctx context.Context, user user.User) user.User {
-	result := userRepository.database.WithContext(ctx).Where("id = ?", user.ID).First(&user)
+func (userRepository UserRepositoryPostgres) GetUser(ctx context.Context, u user.User) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Where("id = ?", u.ID).First(&u)
 	if result.Error != nil {
 		fmt.Println("TODO GetUser(ctx context.Context, uId uuid.UUID) user.User")
+		return u, result.Error
 	}
-	return user
+	return u, nil
 }
 
-func (userRepository UserRepositoryPostgres) UpdateUser(ctx context.Context, user user.User) user.User {
-	result := userRepository.database.WithContext(ctx).Save(&user)
+func (userRepository UserRepositoryPostgres) UpdateUser(ctx context.Context, u user.User) (user.User, error) {
+	result := userRepository.database.WithContext(ctx).Save(&u)
 	if result.Error != nil {
 		fmt.Println("TODO UpdateUser(ctx context.Context, user user.User) user.User")
+		return u, result.Error
 	}
-	return user
+	return u, nil
 }
