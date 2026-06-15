@@ -7,8 +7,18 @@ import (
 )
 
 type WorkflowService struct {
-	Repository         WorkflowRepository
-	repositoryInternal WorkflowRepositoryInternal
+	Repository WorkflowRepository
+	// repositoryInternal WorkflowRepositoryInternal
+}
+
+func NewWorkflowService(
+	workflowRepository WorkflowRepository,
+	workflowRepositoryInternal WorkflowRepositoryInternal,
+) WorkflowService {
+	return WorkflowService{
+		Repository: workflowRepository,
+		// repositoryInternal: workflowRepositoryInternal,
+	}
 }
 
 func (wS WorkflowService) CreateWorkflow(
@@ -135,25 +145,6 @@ func (wS WorkflowService) GetWorkflowDefinitionByUserAndId(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (wS WorkflowService) GetWorkflowDefinitionByUserAndWorkflowRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
-) (WorkflowDefinition, error) {
-	wR, err := wS.repositoryInternal.GetWorkflowRunById(ctx, wRId)
-	if err != nil {
-	}
-
-	wD, err := wS.repositoryInternal.GetWorkflowDefinitionById(ctx, wR.WorkflowDefinitionID)
-	if err != nil {
-	}
-
-	_, err = wS.Repository.GetWorkflowByUserAndId(ctx, uId, wD.WorkflowID)
-	if err != nil {
-	}
-	return wD, nil
-}
-
 func (wS WorkflowService) UpdateWorkflowDefinitionById(
 	ctx context.Context,
 	uId uuid.UUID,
@@ -230,7 +221,7 @@ func (wS WorkflowService) GetWorkflowRunByWorkflowDefinition(
 	return wRDto, nil
 }
 
-func (wS WorkflowService) GetWorkflowRunByWorkflowDefinitionAndId(
+func (wS WorkflowService) GetWorkflowRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wRId uuid.UUID,

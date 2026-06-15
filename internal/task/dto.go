@@ -46,6 +46,12 @@ type TaskRunResponseDto struct {
 }
 
 type TaskAttemptRequestDto struct {
+	AttemptNumber *uint
+	WorkerID      *string
+	Status        *TaskRunStatus
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
+	log           *string
 }
 
 type TaskAttemptResponseDto struct {

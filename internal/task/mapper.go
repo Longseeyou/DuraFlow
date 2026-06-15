@@ -50,6 +50,14 @@ func taskRunModelToResponseDto(tR TaskRun) TaskRunResponseDto {
 	return tRDto
 }
 
+func taskAttemptRequestDtoToModel(tADto TaskAttemptRequestDto) TaskAttempt {
+	var tA TaskAttempt
+	tA.AttemptNumber = *tADto.AttemptNumber
+	tA.WorkerID = *tADto.WorkerID
+	tA.Status = *tADto.Status
+	return tA
+}
+
 func taskAttemptModelToResponseDto(tA TaskAttempt) TaskAttemptResponseDto {
 	var tADto TaskAttemptResponseDto
 	tADto.BaseModelToResponseDto(tA)

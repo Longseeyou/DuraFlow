@@ -105,9 +105,23 @@ func (wRP WorkflowRepositoryPostgres) GetWorkflowDefinitionByWorkflow(
 	wD := []workflow.WorkflowDefinition{}
 	result := wRP.database.WithContext(ctx).
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.workflow_id = ?", uId, wId).
+		Where("workflows.user_id = ? AND workflows.id = ?", uId, wId).
 		Find(&wD)
 	return wD, result.Error
+}
+
+func (wRP WorkflowRepositoryPostgres) filterWorkflowByUserAndId(
+	ctx context.Context,
+	uId uuid.UUID,
+	wDId uuid.UUID,
+) *gorm.DB {
+	return wRP.database.WithContext(ctx).
+		Where(`EXISTS (
+      SELECT 1 
+      FROM workflows
+      WHERE workflows.id = workflow_definitions.workflow_id AND workflows.user_id = ?
+    )`, uId).
+		Where("workflow_definitions.id = ?", wDId)
 }
 
 func (wRP WorkflowRepositoryPostgres) GetWorkflowDefinitionByUserAndId(
@@ -116,10 +130,7 @@ func (wRP WorkflowRepositoryPostgres) GetWorkflowDefinitionByUserAndId(
 	wDId uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := wRP.database.WithContext(ctx).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
-		First(&wD)
+	result := wRP.filterWorkflowByUserAndId(ctx, uId, wDId).First(&wD)
 	return wD, result.Error
 }
 
@@ -130,12 +141,9 @@ func (wRP WorkflowRepositoryPostgres) UpdateWorkflowDefinitionById(
 	newWD map[string]any,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := wRP.database.WithContext(ctx).
-		Model(&wD).
+	result := wRP.filterWorkflowByUserAndId(ctx, uId, wDId).
 		Clauses(clause.Returning{}).
-		Table("workflows").
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
+		Model(&wD).
 		Updates(newWD)
 	return wD, repository.CheckRowsAffected(result)
 }
@@ -146,10 +154,8 @@ func (wRP WorkflowRepositoryPostgres) SoftDeleteWorkflowDefinition(
 	wDId uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := wRP.database.WithContext(ctx).
+	result := wRP.filterWorkflowByUserAndId(ctx, uId, wDId).
 		Clauses(clause.Returning{}).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
 		Delete(&wD)
 	return wD, repository.CheckRowsAffected(result)
 }
@@ -160,10 +166,8 @@ func (wRP WorkflowRepositoryPostgres) HardDeleteWorkflowDefinition(
 	wDId uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := wRP.database.WithContext(ctx).
+	result := wRP.filterWorkflowByUserAndId(ctx, uId, wDId).
 		Clauses(clause.Returning{}).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
 		Unscoped().
 		Delete(&wD)
 	return wD, repository.CheckRowsAffected(result)
@@ -186,11 +190,25 @@ func (wRP WorkflowRepositoryPostgres) GetWorkflowRunByWorkflowDefinition(
 ) ([]workflow.WorkflowRun, error) {
 	wR := []workflow.WorkflowRun{}
 	result := wRP.database.WithContext(ctx).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
+		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
 		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
 		Find(&wR)
 	return wR, result.Error
+}
+
+func (wRP WorkflowRepositoryPostgres) filterWorkflowRunByUserAndId(
+	ctx context.Context, uId uuid.UUID,
+	wRId uuid.UUID,
+) *gorm.DB {
+	return wRP.database.WithContext(ctx).
+		Where(`workflow_runs.workflow_definition_id IN (
+      SELECT workflow_definitions.id
+      FROM workflow_definitions
+      JOIN workflows ON workflows.id = workflow_definitions.workflow_id
+      WHERE workflows.user_id = ?
+    )`, uId).
+		Where("workflow_runs.id = ?", wRId)
 }
 
 func (wRP WorkflowRepositoryPostgres) GetWorkflowRunByUserAndId(
@@ -199,11 +217,7 @@ func (wRP WorkflowRepositoryPostgres) GetWorkflowRunByUserAndId(
 	wRId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := wRP.database.WithContext(ctx).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
-		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).
-		First(&wR)
+	result := wRP.filterWorkflowRunByUserAndId(ctx, uId, wRId).First(&wR)
 	return wR, result.Error
 }
 
@@ -214,12 +228,9 @@ func (wRP WorkflowRepositoryPostgres) UpdateWorkflowRunById(
 	newWR map[string]any,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := wRP.database.WithContext(ctx).
-		Model(&wR).
+	result := wRP.filterWorkflowRunByUserAndId(ctx, uId, wRId).
 		Clauses(clause.Returning{}).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
-		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).
+		Model(&wR).
 		Updates(newWR)
 	return wR, repository.CheckRowsAffected(result)
 }
@@ -230,11 +241,8 @@ func (wRP WorkflowRepositoryPostgres) SoftDeleteWorkflowRun(
 	wRId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := wRP.database.WithContext(ctx).
+	result := wRP.filterWorkflowRunByUserAndId(ctx, uId, wRId).
 		Clauses(clause.Returning{}).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
-		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).
 		Delete(&wR)
 	return wR, repository.CheckRowsAffected(result)
 }
@@ -245,11 +253,8 @@ func (wRP WorkflowRepositoryPostgres) HardDeleteWorkflowRun(
 	wRId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := wRP.database.WithContext(ctx).
+	result := wRP.filterWorkflowRunByUserAndId(ctx, uId, wRId).
 		Clauses(clause.Returning{}).
-		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
-		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).
 		Unscoped().
 		Delete(&wR)
 	return wR, repository.CheckRowsAffected(result)
