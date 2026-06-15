@@ -110,6 +110,18 @@ func (wRP WorkflowRepositoryPostgres) GetWorkflowDefinitionByWorkflow(
 	return wD, result.Error
 }
 
+func (wRP WorkflowRepositoryPostgres) GetWorkflowDefinitionByUserAndId(
+	ctx context.Context,
+	uId uuid.UUID,
+	wDId uuid.UUID,
+) (workflow.WorkflowDefinition, error) {
+	wD := workflow.WorkflowDefinition{}
+	result := wRP.database.WithContext(ctx).
+		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
+		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).First(&wD)
+	return wD, result.Error
+}
+
 func (wRP WorkflowRepositoryPostgres) filterWorkflowByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
@@ -122,16 +134,6 @@ func (wRP WorkflowRepositoryPostgres) filterWorkflowByUserAndId(
       WHERE workflows.id = workflow_definitions.workflow_id AND workflows.user_id = ?
     )`, uId).
 		Where("workflow_definitions.id = ?", wDId)
-}
-
-func (wRP WorkflowRepositoryPostgres) GetWorkflowDefinitionByUserAndId(
-	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-) (workflow.WorkflowDefinition, error) {
-	wD := workflow.WorkflowDefinition{}
-	result := wRP.filterWorkflowByUserAndId(ctx, uId, wDId).First(&wD)
-	return wD, result.Error
 }
 
 func (wRP WorkflowRepositoryPostgres) UpdateWorkflowDefinitionById(
@@ -197,28 +199,31 @@ func (wRP WorkflowRepositoryPostgres) GetWorkflowRunByWorkflowDefinition(
 	return wR, result.Error
 }
 
-func (wRP WorkflowRepositoryPostgres) filterWorkflowRunByUserAndId(
-	ctx context.Context, uId uuid.UUID,
-	wRId uuid.UUID,
-) *gorm.DB {
-	return wRP.database.WithContext(ctx).
-		Where(`workflow_runs.workflow_definition_id IN (
-      SELECT workflow_definitions.id
-      FROM workflow_definitions
-      JOIN workflows ON workflows.id = workflow_definitions.workflow_id
-      WHERE workflows.user_id = ?
-    )`, uId).
-		Where("workflow_runs.id = ?", wRId)
-}
-
 func (wRP WorkflowRepositoryPostgres) GetWorkflowRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wRId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := wRP.filterWorkflowRunByUserAndId(ctx, uId, wRId).First(&wR)
+	result := wRP.database.WithContext(ctx).
+		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
+		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
+		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).First(&wR)
 	return wR, result.Error
+}
+
+func (wRP WorkflowRepositoryPostgres) filterWorkflowRunByUserAndId(
+	ctx context.Context, uId uuid.UUID,
+	wRId uuid.UUID,
+) *gorm.DB {
+	return wRP.database.WithContext(ctx).
+		Where(`EXISTS (
+      SELECT 1
+      FROM workflow_definitions
+      JOIN workflows ON workflows.id = workflow_definitions.workflow_id
+      WHERE workflow_definitions.id = workflow_runs.workflow_definition_id AND workflows.user_id = ?
+    )`, uId).
+		Where("workflow_runs.id = ?", wRId)
 }
 
 func (wRP WorkflowRepositoryPostgres) UpdateWorkflowRunById(
