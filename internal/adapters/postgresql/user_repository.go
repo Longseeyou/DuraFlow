@@ -63,6 +63,16 @@ func (userRepository UserRepositoryPostgres) GetUser(ctx context.Context, u user
 	return u, nil
 }
 
+func (userRepository UserRepositoryPostgres) GetUserByEmail(ctx context.Context, email string) (user.User, error) {
+	u := user.User{}
+	result := userRepository.database.WithContext(ctx).Where("email = ?", email).First(&u)
+	if result.Error != nil {
+		fmt.Println("TODO GetUserByEmail(ctx context.Context, email string) user.User")
+		return u, result.Error
+	}
+	return u, nil
+}
+
 func (userRepository UserRepositoryPostgres) UpdateUser(ctx context.Context, u user.User, newUser map[string]any) (user.User, error) {
 	result := userRepository.database.WithContext(ctx).Model(&u).Clauses(clause.Returning{}).Where("id = ?", u.ID).Updates(newUser)
 	if result.Error != nil {

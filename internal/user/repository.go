@@ -8,5 +8,6 @@ type UserRepository interface {
 	HardDeleteUser(ctx context.Context, user User) (User, error)
 	RestoreUser(ctx context.Context, user User) (User, error)
 	GetUser(ctx context.Context, user User) (User, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
 	UpdateUser(ctx context.Context, user User, newUser map[string]any) (User, error)
 }
