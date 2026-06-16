@@ -6,7 +6,6 @@ import (
 	"github.com/Longseeyou/DuraFlow/internal/user"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
-	"github.com/google/uuid"
 )
 
 type UserHandler struct {
@@ -21,9 +20,16 @@ func (h *UserHandler) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	r.Post("/", h.createUserHandler)
-	r.Get("/{id}", h.getUserHandler)
-	r.Put("/{id}", h.updateUserHandler)
-	r.Delete("/{id}", h.deleteUserHandler)
+
+	return r
+}
+
+func (h *UserHandler) ProtectedRoutes() chi.Router {
+	r := chi.NewRouter()
+
+	r.Get("/me", h.getUserHandler)
+	r.Put("/me", h.updateUserHandler)
+	r.Delete("/me", h.deleteUserHandler)
 
 	return r
 }
@@ -45,7 +51,7 @@ func (h *UserHandler) createUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *UserHandler) getUserHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := userIDFromRequest(w, r)
+	id, ok := userIDFromToken(w, r)
 	if !ok {
 		return
 	}
@@ -60,7 +66,7 @@ func (h *UserHandler) getUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) updateUserHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := userIDFromRequest(w, r)
+	id, ok := userIDFromToken(w, r)
 	if !ok {
 		return
 	}
@@ -82,7 +88,7 @@ func (h *UserHandler) updateUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *UserHandler) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := userIDFromRequest(w, r)
+	id, ok := userIDFromToken(w, r)
 	if !ok {
 		return
 	}
@@ -101,21 +107,6 @@ func (h *UserHandler) deleteUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	renderJSON(w, r, http.StatusOK, response)
-}
-
-func userIDFromRequest(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
-	rawID := chi.URLParam(r, "id")
-	if rawID == "" {
-		rawID = chi.URLParam(r, "userID")
-	}
-
-	id, err := uuid.Parse(rawID)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, "invalid user id")
-		return uuid.Nil, false
-	}
-
-	return id, true
 }
 
 func renderJSON(w http.ResponseWriter, r *http.Request, statusCode int, response any) {

@@ -1,14 +1,31 @@
 package user
 
-import "context"
+import (
+	"context"
+	"errors"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+var ErrPasswordsDoNotMatch = errors.New("password and retyped password do not match")
 
 type UserService struct {
 	Repository UserRepository
 }
 
 func (userService UserService) CreateUser(ctx context.Context, u CreateUserRequestDto) (UserResponseDto, error) {
+	if u.Password != u.RetypedPassword {
+		return UserResponseDto{}, ErrPasswordsDoNotMatch
+	}
+
 	userModel := CreateUserRequestDtoToUser(u)
-	userModel, err := userService.Repository.CreateUser(ctx, userModel)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return UserResponseDto{}, err
+	}
+	userModel.PasswordHash = string(passwordHash)
+
+	userModel, err = userService.Repository.CreateUser(ctx, userModel)
 	if err != nil {
 		return UserResponseDto{}, err
 	}
@@ -53,6 +70,14 @@ func (userService UserService) GetUser(ctx context.Context, u UserRequestDto) (U
 
 func (userService UserService) UpdateUser(ctx context.Context, u UpdateUserRequestDto) (UserResponseDto, error) {
 	userModel := UpdateUserRequestDtoToUser(u)
+	if u.Password != nil {
+		passwordHash, err := bcrypt.GenerateFromPassword([]byte(*u.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return UserResponseDto{}, err
+		}
+		hashedPassword := string(passwordHash)
+		u.Password = &hashedPassword
+	}
 	newUser := UpdateUserRequestDtoToMap(u)
 	userModel, err := userService.Repository.UpdateUser(ctx, userModel, newUser)
 	if err != nil {

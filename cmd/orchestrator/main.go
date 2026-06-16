@@ -35,7 +35,7 @@ func main() {
 
 	w := workflow.Workflow{}
 	w.ID, _ = uuid.Parse("a0315a2c-5564-4f60-b9c7-94996dce4ae1")
-	fmt.Println(workflowService.GetWorkflowByUserAndId(ctx, user.ID, w))
+	fmt.Println(workflowService.GetWorkflowByUserAndId(ctx, user.ID, w.ID))
 
 	// w := workflowService.GetWorkflowByUser(ctx, user.ID)
 	// for i, v := range w {
