@@ -39,6 +39,7 @@ func (s TaskService) CreateTaskDefinition(
 
 	tD := taskDefinitionRequestDtoToModel(tDDto)
 	tD.WorkflowDefinitionID = wDId
+
 	tD, err = s.Repository.CreateTaskDefinition(ctx, tD)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
@@ -61,6 +62,7 @@ func (s TaskService) GetTaskDefinitionByWorkflowDefinition(
 	for _, v := range tDs {
 		dtos = append(dtos, taskDefinitionModelToResponseDto(v))
 	}
+
 	return dtos, nil
 }
 
@@ -167,6 +169,7 @@ func (s TaskService) CreateTaskDependency(
 	}
 
 	tDp := taskDependencyRequestDtoToModel(tDpDto)
+
 	tDp, err := s.Repository.CreateTaskDependency(ctx, tDp)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
@@ -189,6 +192,7 @@ func (s TaskService) GetTaskDependencyByWorkflowDefinition(
 	for _, v := range tDp {
 		tDpDto = append(tDpDto, taskDependencyModelToResponseDto(v))
 	}
+
 	return tDpDto, nil
 }
 
@@ -288,10 +292,12 @@ func (s TaskService) GetTaskRunByWorkflowRun(
 	if err != nil {
 		return nil, err
 	}
+
 	dtos := []TaskRunResponseDto{}
 	for _, v := range tRs {
 		dtos = append(dtos, taskRunModelToResponseDto(v))
 	}
+
 	return dtos, nil
 }
 
@@ -304,6 +310,7 @@ func (s TaskService) GetTaskRunByUserAndId(
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
+
 	return taskRunModelToResponseDto(tR), nil
 }
 
@@ -322,6 +329,7 @@ func (s TaskService) UpdateTaskRunById(
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
+
 	return taskRunModelToResponseDto(tR), nil
 }
 
@@ -334,6 +342,7 @@ func (s TaskService) SoftDeleteTaskRun(
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
+
 	return taskRunModelToResponseDto(tR), nil
 }
 
@@ -346,6 +355,7 @@ func (s TaskService) HardDeleteTaskRun(
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
+
 	return taskRunModelToResponseDto(tR), nil
 }
 
@@ -386,6 +396,7 @@ func (s TaskService) GetTaskAttemptByTaskRun(
 	for _, v := range tAs {
 		dtos = append(dtos, taskAttemptModelToResponseDto(v))
 	}
+
 	return dtos, nil
 }
 

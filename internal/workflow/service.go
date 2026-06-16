@@ -27,9 +27,12 @@ func (wS WorkflowService) CreateWorkflow(
 	wDto WorkflowRequestDto,
 ) (WorkflowResponseDto, error) {
 	w := workflowRequestDtoToModel(wDto)
+	w.UserID = uId
+
 	w, err := wS.Repository.CreateWorkflow(ctx, w)
 	if err != nil {
 	}
+
 	return workflowModelToResponseDto(w), nil
 }
 
@@ -40,10 +43,12 @@ func (wS WorkflowService) GetWorkflowByUser(
 	w, err := wS.Repository.GetWorkflowByUser(ctx, uId)
 	if err != nil {
 	}
+
 	wDto := []WorkflowResponseDto{}
 	for _, v := range w {
 		wDto = append(wDto, workflowModelToResponseDto(v))
 	}
+
 	return wDto, nil
 }
 
@@ -55,6 +60,7 @@ func (wS WorkflowService) GetWorkflowByUserAndId(
 	w, err := wS.Repository.GetWorkflowByUserAndId(ctx, uId, wId)
 	if err != nil {
 	}
+
 	return workflowModelToResponseDto(w), nil
 }
 
@@ -71,9 +77,11 @@ func (wS WorkflowService) UpdateWorkflowById(
 	if wDto.Description != nil {
 		newW["description"] = *wDto.Description
 	}
+
 	w, err := wS.Repository.UpdateWorkflowById(ctx, uId, wId, newW)
 	if err != nil {
 	}
+
 	return workflowModelToResponseDto(w), nil
 }
 
@@ -85,6 +93,7 @@ func (wS WorkflowService) SoftDeleteWorkflow(
 	w, err := wS.Repository.SoftDeleteWorkflow(ctx, uId, wId)
 	if err != nil {
 	}
+
 	return workflowModelToResponseDto(w), nil
 }
 
@@ -96,6 +105,7 @@ func (wS WorkflowService) HardDeleteWorkflow(
 	w, err := wS.Repository.HardDeleteWorkflow(ctx, uId, wId)
 	if err != nil {
 	}
+
 	return workflowModelToResponseDto(w), nil
 }
 
@@ -111,6 +121,8 @@ func (wS WorkflowService) CreateWorkflowDefinition(
 	}
 
 	wD := WorkflowDefinition{WorkflowID: wId}
+	wD.WorkflowID = wId
+
 	wD, err = wS.Repository.CreateWorkflowDefinition(ctx, wD)
 	if err != nil {
 	}
@@ -126,10 +138,12 @@ func (wS WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(
 	wD, err := wS.Repository.GetWorkflowDefinitionByWorkflow(ctx, uId, wId)
 	if err != nil {
 	}
+
 	wDDto := []WorkflowDefinitionResponseDto{}
 	for _, v := range wD {
 		wDDto = append(wDDto, workflowDefinitionModelToResponseDto(v))
 	}
+
 	return wDDto, nil
 }
 
@@ -158,9 +172,11 @@ func (wS WorkflowService) UpdateWorkflowDefinitionById(
 	if wDDto.Status != nil {
 		newWD["status"] = *wDDto.Status
 	}
+
 	wD, err := wS.Repository.UpdateWorkflowDefinitionById(ctx, uId, wDId, newWD)
 	if err != nil {
 	}
+
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
@@ -172,6 +188,7 @@ func (wS WorkflowService) SoftDeleteWorkflowDefinition(
 	wD, err := wS.Repository.SoftDeleteWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
 	}
+
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
@@ -183,6 +200,7 @@ func (wS WorkflowService) HardDeleteWorkflowDefinition(
 	wD, err := wS.Repository.HardDeleteWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
 	}
+
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
@@ -198,6 +216,8 @@ func (wS WorkflowService) CreateWorkflowRun(
 	}
 
 	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: PENDING}
+	wR.WorkflowDefinitionID = wDId
+
 	wR, err = wS.Repository.CreateWorkflowRun(ctx, wR)
 	if err != nil {
 	}
