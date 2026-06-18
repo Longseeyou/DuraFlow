@@ -7,15 +7,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// HTTP
+
 type TaskDefinitionRequestDto struct {
 	Name        *string
 	Description *string
+	TaskType    *TaskType
 }
 
 type TaskDefinitionResponseDto struct {
 	dto.ResponseDto
 	Name        string
 	Description string
+	TaskType    TaskType
 }
 
 type TaskDependencyRequestDto struct {
@@ -31,6 +35,7 @@ type TaskDependencyResponseDto struct {
 
 type TaskRunRequestDto struct {
 	MaxRetries *uint
+	Input      *string
 }
 
 type TaskRunResponseDto struct {
@@ -43,15 +48,9 @@ type TaskRunResponseDto struct {
 	ScheduledAt      *time.Time
 	StartedAt        *time.Time
 	CompletedAt      *time.Time
-}
-
-type TaskAttemptRequestDto struct {
-	AttemptNumber *uint
-	WorkerID      *string
-	Status        *TaskRunStatus
-	StartedAt     *time.Time
-	CompletedAt   *time.Time
-	log           *string
+	Input            *string
+	Output           *string
+	Error            *string
 }
 
 type TaskAttemptResponseDto struct {
@@ -60,6 +59,28 @@ type TaskAttemptResponseDto struct {
 	AttemptNumber uint
 	WorkerID      string
 	Status        TaskRunStatus
+	StartedAt     *time.Time
+	CompletedAt   *time.Time
+	log           *string
+}
+
+// Internal
+
+type TaskRunInternalDto struct {
+	Status      *TaskRunStatus
+	RetryCount  *uint
+	ScheduledAt *time.Time
+	StartedAt   *time.Time
+	CompletedAt *time.Time
+	Input       *string
+	Output      *string
+	Error       *string
+}
+
+type TaskAttemptInternalDto struct {
+	AttemptNumber *uint
+	WorkerID      *string
+	Status        *TaskRunStatus
 	StartedAt     *time.Time
 	CompletedAt   *time.Time
 	log           *string

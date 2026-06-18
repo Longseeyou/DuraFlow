@@ -8,6 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type TaskType int
+
+const (
+	MOCK_TASK TaskType = iota
+)
+
 type TaskRunStatus int
 
 const (
@@ -27,6 +33,7 @@ type TaskDefinition struct {
 	WorkflowDefinition   workflow.WorkflowDefinition
 	Name                 string
 	Description          string
+	TaskType             TaskType
 }
 
 type TaskDependency struct {
@@ -49,6 +56,9 @@ type TaskRun struct {
 	ScheduledAt      *time.Time
 	StartedAt        *time.Time
 	CompletedAt      *time.Time
+	Input            *string
+	Output           *string
+	Error            *string
 }
 
 type TaskAttempt struct {

@@ -1,11 +1,15 @@
 package task
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 func taskDefinitionRequestDtoToModel(tDDto TaskDefinitionRequestDto) TaskDefinition {
 	var tD TaskDefinition
 	tD.Name = *tDDto.Name
 	tD.Description = *tDDto.Description
+	tD.TaskType = *tDDto.TaskType
 	return tD
 }
 
@@ -35,6 +39,7 @@ func taskDependencyModelToResponseDto(tD TaskDependency) TaskDependencyResponseD
 func taskRunRequestDtoToModel(tRDto TaskRunRequestDto) TaskRun {
 	var tR TaskRun
 	tR.MaxRetries = *tRDto.MaxRetries
+	tR.Input = *&tRDto.Input
 	return tR
 }
 
@@ -46,16 +51,11 @@ func taskRunModelToResponseDto(tR TaskRun) TaskRunResponseDto {
 	tRDto.Status = tR.Status
 	tRDto.RetryCount = tR.RetryCount
 	tRDto.MaxRetries = tR.MaxRetries
+	tRDto.Input = tR.Input
+	tRDto.Output = tR.Output
+	tRDto.Error = tR.Error
 	fmt.Println("missing ScheduledAt, StartedAt, CompletedAt")
 	return tRDto
-}
-
-func taskAttemptRequestDtoToModel(tADto TaskAttemptRequestDto) TaskAttempt {
-	var tA TaskAttempt
-	tA.AttemptNumber = *tADto.AttemptNumber
-	tA.WorkerID = *tADto.WorkerID
-	tA.Status = *tADto.Status
-	return tA
 }
 
 func taskAttemptModelToResponseDto(tA TaskAttempt) TaskAttemptResponseDto {
@@ -66,4 +66,60 @@ func taskAttemptModelToResponseDto(tA TaskAttempt) TaskAttemptResponseDto {
 	tADto.WorkerID = tA.WorkerID
 	tADto.Status = tA.Status
 	return tADto
+}
+
+// Internal
+
+func taskRunInternalDtoToMap(tRDto TaskRunInternalDto) (map[string]any, error) {
+	tR := map[string]any{}
+
+	switch *tRDto.Status {
+	case QUEUED:
+		if tRDto.ScheduledAt == nil {
+			return nil, errors.New("Missing ScheduledAt for status QUEUED")
+		}
+		tR["ScheduledAt"] = *tRDto.ScheduledAt
+	case RUNNING:
+		if tRDto.StartedAt == nil {
+			return nil, errors.New("Missing StartedAt for status RUNNING")
+		}
+		tR["StartedAt"] = *tRDto.StartedAt
+	case COMPLETED:
+		if tRDto.CompletedAt == nil {
+			return nil, errors.New("Missing CompletedAt for status COMPLETED")
+		}
+		tR["CompletedAt"] = *tRDto.CompletedAt
+	}
+
+	if tRDto.RetryCount != nil {
+		tR["RetryCount"] = *tRDto.RetryCount
+	}
+
+	if tRDto.Input != nil {
+		tR["Input"] = *tRDto.Input
+	}
+
+	if tRDto.Output != nil {
+		tR["Output"] = *tRDto.Output
+	}
+
+	if tRDto.Error != nil {
+		tR["Error"] = *tRDto.Error
+	}
+
+	return tR, nil
+}
+
+func taskAttemptInternalDtoToModel(tADto TaskAttemptInternalDto) TaskAttempt {
+	var tA TaskAttempt
+	tA.AttemptNumber = *tADto.AttemptNumber
+	tA.WorkerID = *tADto.WorkerID
+	tA.Status = *tADto.Status
+	tA.StartedAt = tADto.StartedAt
+	return tA
+}
+
+func taskAttemptInternalDtoToMap(tADto TaskAttemptInternalDto) (map[string]any, error) {
+	tA := map[string]any{}
+	return tA, nil
 }

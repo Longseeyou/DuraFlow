@@ -25,7 +25,7 @@ type TaskDefinitionStore interface {
 		uId uuid.UUID,
 		tDId uuid.UUID,
 	) (TaskDefinition, error)
-	UpdateTaskDefinitionById(
+	UpdateTaskDefinitionByUserAndId(
 		ctx context.Context,
 		uId uuid.UUID,
 		tDId uuid.UUID,
@@ -55,7 +55,7 @@ type TaskDependencyStore interface {
 		uId uuid.UUID,
 		tDpId uuid.UUID,
 	) (TaskDependency, error)
-	UpdateTaskDependencyById(
+	UpdateTaskDependencyByUserAndId(
 		ctx context.Context,
 		uId uuid.UUID,
 		tDpId uuid.UUID,
@@ -81,7 +81,7 @@ type TaskRunStore interface {
 		uId uuid.UUID,
 		tRId uuid.UUID,
 	) (TaskRun, error)
-	UpdateTaskRunById(
+	UpdateTaskRunByUserAndId(
 		ctx context.Context,
 		uId uuid.UUID,
 		tRId uuid.UUID,
@@ -92,7 +92,6 @@ type TaskRunStore interface {
 }
 
 type TaskAttemptStore interface {
-	CreateTaskAttempt(ctx context.Context, tA TaskAttempt) (TaskAttempt, error)
 	GetTaskAttemptByTaskRun(
 		ctx context.Context,
 		uId uuid.UUID,
@@ -103,12 +102,6 @@ type TaskAttemptStore interface {
 		uId uuid.UUID,
 		tAId uuid.UUID,
 	) (TaskAttempt, error)
-	UpdateTaskAttemptById(
-		ctx context.Context,
-		uId uuid.UUID,
-		tAId uuid.UUID,
-		newTA map[string]any,
-	) (TaskAttempt, error)
 	SoftDeleteTaskAttempt(ctx context.Context, uId uuid.UUID, tAId uuid.UUID) (TaskAttempt, error)
 	HardDeleteTaskAttempt(ctx context.Context, uId uuid.UUID, tAId uuid.UUID) (TaskAttempt, error)
 }
@@ -116,6 +109,8 @@ type TaskAttemptStore interface {
 type TaskRepositoryInternal interface {
 	TaskDefinitionStoreInternal
 	TaskDependencyStoreInternal
+	TaskRunStoreInternal
+	TaskAttemptStoreInternal
 }
 
 type TaskDefinitionStoreInternal interface {
@@ -124,4 +119,21 @@ type TaskDefinitionStoreInternal interface {
 
 type TaskDependencyStoreInternal interface {
 	GetTaskDependencyById(ctx context.Context, tDpId uuid.UUID) (TaskDependency, error)
+}
+
+type TaskRunStoreInternal interface {
+	UpdateTaskRunById(
+		ctx context.Context,
+		tRId uuid.UUID,
+		newTR map[string]any,
+	) (TaskRun, error)
+}
+
+type TaskAttemptStoreInternal interface {
+	CreateTaskAttempt(ctx context.Context, tA TaskAttempt) (TaskAttempt, error)
+	UpdateTaskAttemptById(
+		ctx context.Context,
+		tAId uuid.UUID,
+		newTA map[string]any,
+	) (TaskAttempt, error)
 }

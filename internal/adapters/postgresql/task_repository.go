@@ -67,7 +67,7 @@ func (tRP TaskRepositoryPostgres) filterTaskDefinitionByUserAndId(
 		Where("task_definitions.id = ?", tDId)
 }
 
-func (tRP TaskRepositoryPostgres) UpdateTaskDefinitionById(
+func (tRP TaskRepositoryPostgres) UpdateTaskDefinitionByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDId uuid.UUID,
@@ -168,7 +168,7 @@ func (tRP TaskRepositoryPostgres) filterTaskDependencyByUserAndId(
 		Where("task_dependencys.id = ?", tDpId)
 }
 
-func (tRP TaskRepositoryPostgres) UpdateTaskDependencyById(
+func (tRP TaskRepositoryPostgres) UpdateTaskDependencyByUserAndId(
 	ctx context.Context, uId uuid.UUID,
 	tDpId uuid.UUID,
 	newTDp map[string]any,
@@ -267,7 +267,7 @@ func (tRP TaskRepositoryPostgres) filterTaskRunByUserAndId(
 		Where("task_runs.id = ?", tRId)
 }
 
-func (tRP TaskRepositoryPostgres) UpdateTaskRunById(
+func (tRP TaskRepositoryPostgres) UpdateTaskRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -305,14 +305,6 @@ func (tRP TaskRepositoryPostgres) HardDeleteTaskRun(
 }
 
 // TaskAttempt
-
-func (tRP TaskRepositoryPostgres) CreateTaskAttempt(
-	ctx context.Context,
-	tA task.TaskAttempt,
-) (task.TaskAttempt, error) {
-	result := tRP.database.WithContext(ctx).Create(&tA)
-	return tA, result.Error
-}
 
 func (tRP TaskRepositoryPostgres) GetTaskAttemptByTaskRun(
 	ctx context.Context,
@@ -371,20 +363,6 @@ func (tRP TaskRepositoryPostgres) filterTaskAttemptByUserAndId(
 		Where("task_attempts.id = ?", tAId)
 }
 
-func (tRP TaskRepositoryPostgres) UpdateTaskAttemptById(
-	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
-	newTA map[string]any,
-) (task.TaskAttempt, error) {
-	var tA task.TaskAttempt
-	result := tRP.filterTaskAttemptByUserAndId(ctx, uId, tAId).
-		Clauses(clause.Returning{}).
-		Model(&tA).
-		Updates(newTA)
-	return tA, repository.CheckRowsAffected(result)
-}
-
 func (tRP TaskRepositoryPostgres) SoftDeleteTaskAttempt(
 	ctx context.Context,
 	uId uuid.UUID,
@@ -436,4 +414,40 @@ func (tRIP TaskRepositoryInternalPostgres) GetTaskDependencyById(
 	var tDp task.TaskDependency
 	result := tRIP.database.WithContext(ctx).Where("id = ?", tDpId).First(&tDp)
 	return tDp, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) UpdateTaskRunById(
+	ctx context.Context,
+	tRId uuid.UUID,
+	newTR map[string]any,
+) (task.TaskRun, error) {
+	var tR task.TaskRun
+	result := tRIP.database.WithContext(ctx).
+		Where("id = ?", tRId).
+		Clauses(clause.Returning{}).
+		Model(&tR).
+		Updates(newTR)
+	return tR, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) CreateTaskAttempt(
+	ctx context.Context,
+	tA task.TaskAttempt,
+) (task.TaskAttempt, error) {
+	result := tRIP.database.WithContext(ctx).Create(&tA)
+	return tA, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) UpdateTaskAttemptById(
+	ctx context.Context,
+	tAId uuid.UUID,
+	newTA map[string]any,
+) (task.TaskAttempt, error) {
+	var tA task.TaskAttempt
+	result := tRIP.database.WithContext(ctx).
+		Where("id = ?", tAId).
+		Clauses(clause.Returning{}).
+		Model(&tA).
+		Updates(newTA)
+	return tA, repository.CheckRowsAffected(result)
 }
