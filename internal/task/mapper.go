@@ -53,7 +53,6 @@ func taskRunModelToResponseDto(tR TaskRun) TaskRunResponseDto {
 	tRDto.MaxRetries = tR.MaxRetries
 	tRDto.Input = tR.Input
 	tRDto.Output = tR.Output
-	tRDto.Error = tR.Error
 	fmt.Println("missing ScheduledAt, StartedAt, CompletedAt")
 	return tRDto
 }

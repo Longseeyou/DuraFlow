@@ -58,7 +58,6 @@ type TaskRun struct {
 	CompletedAt      *time.Time
 	Input            *string
 	Output           *string
-	Error            *string
 }
 
 type TaskAttempt struct {
