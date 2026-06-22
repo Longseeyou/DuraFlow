@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/message"
@@ -22,21 +21,15 @@ func NewWorker(consumer message.Consumer, producer message.Producer) Worker {
 
 func (w Worker) Run(ctx context.Context) {
 	for {
-		fmt.Println("for")
 		msg, err := w.consumer.ReceiveMessage(ctx)
 		if err != nil {
-			fmt.Println("ReceiveMessage:", err)
-			continue
 		}
-		fmt.Println("ReceiveMessage")
 
 		switch string(msg.Key[:]) {
 		case "TaskCommandRequest":
 			var tCRequest task.TaskCommandRequest
 			err = json.Unmarshal(msg.Value, &tCRequest)
 			if err != nil {
-				fmt.Println("Decode:", err)
-				continue
 			}
 
 			startedAt := time.Now()

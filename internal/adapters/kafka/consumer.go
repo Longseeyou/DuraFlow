@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -110,7 +109,6 @@ func (c *consumerKafka) ReceiveMessage(
 ) (*message.Message, error) {
 	select {
 	case msg := <-c.messages:
-		fmt.Println("c.messages")
 		return msg, nil
 
 	case <-ctx.Done():
@@ -135,7 +133,6 @@ func (h *consumerGroupHandler) ConsumeClaim(
 	claim sarama.ConsumerGroupClaim,
 ) error {
 	for msg := range claim.Messages() {
-		fmt.Println("msg", msg)
 		select {
 		case h.consumer.messages <- &message.Message{
 			Topic:     msg.Topic,
