@@ -5,7 +5,7 @@ import (
 )
 
 type Producer interface {
-	Start(ctx context.Context)
-	Stop()
-	SendMessage(ctx context.Context, topic string, key []byte, value []byte) error
+	Start(ctx context.Context) error
+	Stop() error
+	SendMessage(ctx context.Context, topic string, key string, value []byte) error
 }

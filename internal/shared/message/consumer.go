@@ -13,7 +13,7 @@ type Message struct {
 }
 
 type Consumer interface {
-	Start(ctx context.Context)
-	Stop()
+	Start(ctx context.Context) error
+	Stop() error
 	ReceiveMessage(ctx context.Context) (*Message, error)
 }

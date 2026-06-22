@@ -10,14 +10,14 @@ import (
 
 type producerKafka struct {
 	id string
-	*config
+	*KafkaConfig
 	producer *sarama.SyncProducer
 }
 
-func NewProducerKafka(id string) *producerKafka {
+func NewProducerKafka(id string, config *KafkaConfig) *producerKafka {
 	return &producerKafka{
-		id:     id,
-		config: new(config),
+		id:          id,
+		KafkaConfig: config,
 	}
 }
 
@@ -27,8 +27,8 @@ func (p *producerKafka) Start(ctx context.Context) error {
 	config.Producer.Return.Errors = true
 	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Partitioner = sarama.NewRoundRobinPartitioner
-	config.Producer.Retry.Max = p.maxRetries
-	config.Producer.Timeout = p.maxWaitTime
+	config.Producer.Retry.Max = p.MaxRetries
+	config.Producer.Timeout = p.MaxWaitTime
 
 	// set authentication
 	if p.SASLUser != "" && p.SASLPass != "" {
@@ -63,14 +63,19 @@ func (p *producerKafka) Stop() error {
 	return nil
 }
 
-func (p *producerKafka) SendMessage(ctx context.Context, topic string, key, value []byte) error {
+func (p *producerKafka) SendMessage(
+	ctx context.Context,
+	topic string,
+	key string,
+	value []byte,
+) error {
 	if p.producer == nil {
 		return sarama.ErrNotConnected
 	}
 
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
-		Key:   sarama.ByteEncoder(key),
+		Key:   sarama.StringEncoder(key),
 		Value: sarama.ByteEncoder(value),
 	}
 

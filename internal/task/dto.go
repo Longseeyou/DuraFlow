@@ -47,7 +47,7 @@ type TaskRunResponseDto struct {
 	MaxRetries       uint
 	ScheduledAt      *time.Time
 	StartedAt        *time.Time
-	CompletedAt      *time.Time
+	EndedAt          *time.Time
 	Input            *string
 	Output           *string
 	Error            *string
@@ -60,7 +60,7 @@ type TaskAttemptResponseDto struct {
 	WorkerID      string
 	Status        TaskRunStatus
 	StartedAt     *time.Time
-	CompletedAt   *time.Time
+	EndedAt       *time.Time
 	log           *string
 }
 
@@ -71,7 +71,7 @@ type TaskRunInternalDto struct {
 	RetryCount  *uint
 	ScheduledAt *time.Time
 	StartedAt   *time.Time
-	CompletedAt *time.Time
+	EndedAt     *time.Time
 	Input       *string
 	Output      *string
 	Error       *string
@@ -82,7 +82,7 @@ type TaskAttemptInternalDto struct {
 	WorkerID      *string
 	Status        *TaskRunStatus
 	StartedAt     *time.Time
-	CompletedAt   *time.Time
+	EndedAt       *time.Time
 	log           *string
 }
 
@@ -92,9 +92,9 @@ type TaskCommandRequest struct {
 }
 
 type TaskCommandResponse struct {
-	Status      *TaskRunStatus
-	StartedAt   *time.Time
-	CompletedAt *time.Time
-	Output      *string
-	Error       *string
+	Status    *TaskRunStatus
+	StartedAt *time.Time
+	EndedAt   *time.Time
+	Output    *string
+	Log       *string
 }
