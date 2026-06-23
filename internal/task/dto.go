@@ -58,7 +58,7 @@ type TaskAttemptResponseDto struct {
 	TaskRunID     uuid.UUID
 	AttemptNumber uint
 	WorkerID      string
-	Status        TaskRunStatus
+	Status        TaskAttemptStatus
 	StartedAt     *time.Time
 	EndedAt       *time.Time
 	log           *string
@@ -80,7 +80,7 @@ type TaskRunInternalDto struct {
 type TaskAttemptInternalDto struct {
 	AttemptNumber *uint
 	WorkerID      *string
-	Status        *TaskRunStatus
+	Status        *TaskAttemptStatus
 	StartedAt     *time.Time
 	EndedAt       *time.Time
 	log           *string
@@ -92,7 +92,7 @@ type TaskCommandRequest struct {
 }
 
 type TaskCommandResponse struct {
-	Status    *TaskRunStatus
+	Status    *TaskAttemptStatus
 	StartedAt *time.Time
 	EndedAt   *time.Time
 	Output    *string

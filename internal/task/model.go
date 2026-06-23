@@ -14,17 +14,25 @@ const (
 	MOCK_TASK TaskType = iota
 )
 
-type TaskRunStatus int
+type TaskRunStatus string
 
 const (
-	PENDING TaskRunStatus = iota
-	QUEUED
-	RUNNING
-	COMPLETED
-	FAILED
-	RETRYING
-	CANCELLED
-	DEAD_LETTERED
+	TASK_RUN_PENDING       TaskRunStatus = "TASK_RUN_PENDING"
+	TASK_RUN_QUEUED        TaskRunStatus = "TASK_RUN_QUEUED"
+	TASK_RUN_RUNNING       TaskRunStatus = "TASK_RUN_RUNNING"
+	TASK_RUN_COMPLETED     TaskRunStatus = "TASK_RUN_COMPLETED"
+	TASK_RUN_FAILED        TaskRunStatus = "TASK_RUN_FAILED"
+	TASK_RUN_CANCELLED     TaskRunStatus = "TASK_RUN_CANCELLED"
+	TASK_RUN_DEAD_LETTERED TaskRunStatus = "TASK_RUN_DEAD_LETTERED"
+)
+
+type TaskAttemptStatus string
+
+const (
+	TASK_ATTEMPT_QUEUED    TaskAttemptStatus = "TASK_ATTEMPT_QUEUED"
+	TASK_ATTEMPT_RUNNING   TaskAttemptStatus = "TASK_ATTEMPT_RUNNING"
+	TASK_ATTEMPT_COMPLETED TaskAttemptStatus = "TASK_ATTEMPT_COMPLETED"
+	TASK_ATTEMPT_FAILED    TaskAttemptStatus = "TASK_ATTEMPT_FAILED"
 )
 
 type TaskDefinition struct {
@@ -55,7 +63,7 @@ type TaskRun struct {
 	MaxRetries       uint
 	ScheduledAt      *time.Time
 	StartedAt        *time.Time
-	CompletedAt      *time.Time
+	EndedAt          *time.Time
 	Input            *string
 	Output           *string
 }
@@ -66,14 +74,8 @@ type TaskAttempt struct {
 	TaskRun       TaskRun
 	AttemptNumber uint
 	WorkerID      string
-	Status        TaskRunStatus
+	Status        TaskAttemptStatus
 	StartedAt     *time.Time
-	CompletedAt   *time.Time
-	log           *string
-}
-
-type TaskEvent struct {
-	model.BaseModel
-	WorkflowRunID uuid.UUID
-	WorkflowRun   workflow.WorkflowRun
+	EndedAt       *time.Time
+	Log           *string
 }

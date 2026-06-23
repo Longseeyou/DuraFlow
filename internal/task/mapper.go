@@ -73,17 +73,17 @@ func taskRunInternalDtoToMap(tRDto TaskRunInternalDto) (map[string]any, error) {
 	tR := map[string]any{}
 
 	switch *tRDto.Status {
-	case QUEUED:
+	case TASK_RUN_QUEUED:
 		if tRDto.ScheduledAt == nil {
 			return nil, errors.New("Missing ScheduledAt for status QUEUED")
 		}
 		tR["ScheduledAt"] = *tRDto.ScheduledAt
-	case RUNNING:
+	case TASK_RUN_RUNNING:
 		if tRDto.StartedAt == nil {
 			return nil, errors.New("Missing StartedAt for status RUNNING")
 		}
 		tR["StartedAt"] = *tRDto.StartedAt
-	case COMPLETED:
+	case TASK_RUN_COMPLETED:
 		if tRDto.EndedAt == nil {
 			return nil, errors.New("Missing EndedAt for status COMPLETED")
 		}

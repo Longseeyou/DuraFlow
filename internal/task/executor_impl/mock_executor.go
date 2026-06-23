@@ -18,21 +18,21 @@ type MockExecutor struct {
 func (e MockExecutor) Execute(
 	ctx context.Context,
 	input string,
-) (string, string, task.TaskRunStatus, error) {
+) (string, string, task.TaskAttemptStatus, error) {
 	r := rand.Float64()
 	slog.Info("MockExecutor Execute", "r", r)
 	time.Sleep(time.Duration(r * 10 * time.Hour.Seconds()))
 
 	if r < 0.7 {
-		return "", strconv.FormatFloat(r, 'f', -1, 32), task.COMPLETED, nil
+		return "", strconv.FormatFloat(r, 'f', -1, 32), task.TASK_ATTEMPT_COMPLETED, nil
 	} else if r < 0.8 {
-		return "task error", "task error", task.FAILED, nil
+		return "task error", "task error", task.TASK_ATTEMPT_FAILED, nil
 	} else if r < 0.9 {
-		return "executor error", "executor error", task.FAILED, fmt.Errorf(
+		return "executor error", "executor error", task.TASK_ATTEMPT_FAILED, fmt.Errorf(
 			"MockExecutor Execute executor error",
 		)
 	} else {
 		os.Exit(1)
-		return "", "", task.FAILED, fmt.Errorf("")
+		return "", "", task.TASK_ATTEMPT_FAILED, fmt.Errorf("")
 	}
 }
