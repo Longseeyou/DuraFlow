@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Longseeyou/DuraFlow/internal/workflow"
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ func (s TaskService) CreateTaskDefinition(
 ) (TaskDefinitionResponseDto, error) {
 	_, err := s.wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
 	if err != nil {
+		return TaskDefinitionResponseDto{}, err
 	}
 
 	tD := taskDefinitionRequestDtoToModel(tDDto)
@@ -83,6 +85,7 @@ func (s TaskService) GetTaskDefinitionByUserAndId(
 ) (TaskDefinitionResponseDto, error) {
 	tD, err := s.getTaskDefinitionByUserAndId(ctx, uId, tDId)
 	if err != nil {
+		return TaskDefinitionResponseDto{}, err
 	}
 
 	return taskDefinitionModelToResponseDto(tD), nil
@@ -143,18 +146,18 @@ func (s TaskService) isTaskDependencyValid(
 	uId uuid.UUID,
 	tId uuid.UUID,
 	dpTId uuid.UUID,
-) bool {
+) (bool, error) {
 	t, err := s.getTaskDefinitionByUserAndId(ctx, uId, tId)
 	if err != nil {
-		return false
+		return false, err
 	}
 
 	dpT, err := s.getTaskDefinitionByUserAndId(ctx, uId, dpTId)
 	if err != nil {
-		return false
+		return false, err
 	}
 
-	return t.WorkflowDefinitionID == dpT.WorkflowDefinitionID
+	return t.WorkflowDefinitionID == dpT.WorkflowDefinitionID, nil
 }
 
 func (s TaskService) CreateTaskDependency(
@@ -162,12 +165,17 @@ func (s TaskService) CreateTaskDependency(
 	uId uuid.UUID,
 	tDpDto TaskDependencyRequestDto,
 ) (TaskDependencyResponseDto, error) {
-	if !s.isTaskDependencyValid(ctx, uId, tDpDto.TaskID, tDpDto.DependOnTaskID) {
+	valid, err := s.isTaskDependencyValid(ctx, uId, tDpDto.TaskID, tDpDto.DependOnTaskID)
+	if err != nil {
+		return TaskDependencyResponseDto{}, err
+	}
+	if !valid {
+		return TaskDependencyResponseDto{}, fmt.Errorf("")
 	}
 
 	tDp := taskDependencyRequestDtoToModel(tDpDto)
 
-	tDp, err := s.Repository.CreateTaskDependency(ctx, tDp)
+	tDp, err = s.Repository.CreateTaskDependency(ctx, tDp)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
@@ -212,7 +220,12 @@ func (s TaskService) UpdateTaskDependencyById(
 	tDpId uuid.UUID,
 	tDpDto TaskDependencyRequestDto,
 ) (TaskDependencyResponseDto, error) {
-	if !s.isTaskDependencyValid(ctx, uId, tDpDto.TaskID, tDpDto.DependOnTaskID) {
+	valid, err := s.isTaskDependencyValid(ctx, uId, tDpDto.TaskID, tDpDto.DependOnTaskID)
+	if err != nil {
+		return TaskDependencyResponseDto{}, err
+	}
+	if !valid {
+		return TaskDependencyResponseDto{}, fmt.Errorf("")
 	}
 
 	newTDp := map[string]any{}
@@ -263,10 +276,12 @@ func (s TaskService) CreateTaskRun(
 ) (TaskRunResponseDto, error) {
 	_, err := s.wS.GetWorkflowRunByUserAndId(ctx, uId, wRId)
 	if err != nil {
+		return TaskRunResponseDto{}, err
 	}
 
 	_, err = s.GetTaskDefinitionByUserAndId(ctx, uId, tDId)
 	if err != nil {
+		return TaskRunResponseDto{}, err
 	}
 
 	tR := taskRunRequestDtoToModel(tRDto)

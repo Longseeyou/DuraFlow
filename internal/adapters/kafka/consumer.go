@@ -68,7 +68,7 @@ func (c *consumerKafka) Start(ctx context.Context) error {
 
 		for {
 			if err := group.Consume(runCtx, c.topics, handler); err != nil {
-				slog.Error("Consumer error", "error", err)
+				slog.Error("Kafka consumer error", "error", err)
 			}
 
 			if runCtx.Err() != nil {

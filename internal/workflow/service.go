@@ -31,6 +31,7 @@ func (wS WorkflowService) CreateWorkflow(
 
 	w, err := wS.Repository.CreateWorkflow(ctx, w)
 	if err != nil {
+		return WorkflowResponseDto{}, err
 	}
 
 	return workflowModelToResponseDto(w), nil
@@ -42,6 +43,7 @@ func (wS WorkflowService) GetWorkflowByUser(
 ) ([]WorkflowResponseDto, error) {
 	w, err := wS.Repository.GetWorkflowByUser(ctx, uId)
 	if err != nil {
+		return nil, err
 	}
 
 	wDto := []WorkflowResponseDto{}
@@ -59,6 +61,7 @@ func (wS WorkflowService) GetWorkflowByUserAndId(
 ) (WorkflowResponseDto, error) {
 	w, err := wS.Repository.GetWorkflowByUserAndId(ctx, uId, wId)
 	if err != nil {
+		return WorkflowResponseDto{}, err
 	}
 
 	return workflowModelToResponseDto(w), nil
@@ -80,6 +83,7 @@ func (wS WorkflowService) UpdateWorkflowById(
 
 	w, err := wS.Repository.UpdateWorkflowById(ctx, uId, wId, newW)
 	if err != nil {
+		return WorkflowResponseDto{}, err
 	}
 
 	return workflowModelToResponseDto(w), nil
@@ -92,6 +96,7 @@ func (wS WorkflowService) SoftDeleteWorkflow(
 ) (WorkflowResponseDto, error) {
 	w, err := wS.Repository.SoftDeleteWorkflow(ctx, uId, wId)
 	if err != nil {
+		return WorkflowResponseDto{}, err
 	}
 
 	return workflowModelToResponseDto(w), nil
@@ -104,6 +109,7 @@ func (wS WorkflowService) HardDeleteWorkflow(
 ) (WorkflowResponseDto, error) {
 	w, err := wS.Repository.HardDeleteWorkflow(ctx, uId, wId)
 	if err != nil {
+		return WorkflowResponseDto{}, err
 	}
 
 	return workflowModelToResponseDto(w), nil
@@ -118,6 +124,7 @@ func (wS WorkflowService) CreateWorkflowDefinition(
 ) (WorkflowDefinitionResponseDto, error) {
 	_, err := wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wId)
 	if err != nil {
+		return WorkflowDefinitionResponseDto{}, err
 	}
 
 	wD := WorkflowDefinition{WorkflowID: wId}
@@ -125,6 +132,7 @@ func (wS WorkflowService) CreateWorkflowDefinition(
 
 	wD, err = wS.Repository.CreateWorkflowDefinition(ctx, wD)
 	if err != nil {
+		return WorkflowDefinitionResponseDto{}, err
 	}
 
 	return workflowDefinitionModelToResponseDto(wD), nil
@@ -137,6 +145,7 @@ func (wS WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(
 ) ([]WorkflowDefinitionResponseDto, error) {
 	wD, err := wS.Repository.GetWorkflowDefinitionByWorkflow(ctx, uId, wId)
 	if err != nil {
+		return nil, err
 	}
 
 	wDDto := []WorkflowDefinitionResponseDto{}
@@ -154,6 +163,7 @@ func (wS WorkflowService) GetWorkflowDefinitionByUserAndId(
 ) (WorkflowDefinitionResponseDto, error) {
 	wD, err := wS.Repository.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
 	if err != nil {
+		return WorkflowDefinitionResponseDto{}, err
 	}
 
 	return workflowDefinitionModelToResponseDto(wD), nil
@@ -175,6 +185,7 @@ func (wS WorkflowService) UpdateWorkflowDefinitionById(
 
 	wD, err := wS.Repository.UpdateWorkflowDefinitionById(ctx, uId, wDId, newWD)
 	if err != nil {
+		return WorkflowDefinitionResponseDto{}, err
 	}
 
 	return workflowDefinitionModelToResponseDto(wD), nil
@@ -187,6 +198,7 @@ func (wS WorkflowService) SoftDeleteWorkflowDefinition(
 ) (WorkflowDefinitionResponseDto, error) {
 	wD, err := wS.Repository.SoftDeleteWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
+		return WorkflowDefinitionResponseDto{}, err
 	}
 
 	return workflowDefinitionModelToResponseDto(wD), nil
@@ -199,6 +211,7 @@ func (wS WorkflowService) HardDeleteWorkflowDefinition(
 ) (WorkflowDefinitionResponseDto, error) {
 	wD, err := wS.Repository.HardDeleteWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
+		return WorkflowDefinitionResponseDto{}, err
 	}
 
 	return workflowDefinitionModelToResponseDto(wD), nil
@@ -213,6 +226,7 @@ func (wS WorkflowService) CreateWorkflowRun(
 ) (WorkflowRunResponseDto, error) {
 	_, err := wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
 	if err != nil {
+		return WorkflowRunResponseDto{}, err
 	}
 
 	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: PENDING}
@@ -220,6 +234,7 @@ func (wS WorkflowService) CreateWorkflowRun(
 
 	wR, err = wS.Repository.CreateWorkflowRun(ctx, wR)
 	if err != nil {
+		return WorkflowRunResponseDto{}, err
 	}
 
 	return workflowRunModelToResponseDto(wR), nil
@@ -232,6 +247,7 @@ func (wS WorkflowService) GetWorkflowRunByWorkflowDefinition(
 ) ([]WorkflowRunResponseDto, error) {
 	wR, err := wS.Repository.GetWorkflowRunByWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
+		return nil, err
 	}
 
 	wRDto := []WorkflowRunResponseDto{}
@@ -248,6 +264,7 @@ func (wS WorkflowService) GetWorkflowRunByUserAndId(
 ) (WorkflowRunResponseDto, error) {
 	wR, err := wS.Repository.GetWorkflowRunByUserAndId(ctx, uId, wRId)
 	if err != nil {
+		return WorkflowRunResponseDto{}, err
 	}
 
 	return workflowRunModelToResponseDto(wR), nil
@@ -266,6 +283,7 @@ func (wS WorkflowService) UpdateWorkflowRunById(
 
 	wR, err := wS.Repository.UpdateWorkflowRunById(ctx, uId, wRId, newWR)
 	if err != nil {
+		return WorkflowRunResponseDto{}, err
 	}
 
 	return workflowRunModelToResponseDto(wR), nil
@@ -278,6 +296,7 @@ func (wS WorkflowService) SoftDeleteWorkflowRun(
 ) (WorkflowRunResponseDto, error) {
 	wR, err := wS.Repository.SoftDeleteWorkflowRun(ctx, uId, wRId)
 	if err != nil {
+		return WorkflowRunResponseDto{}, err
 	}
 
 	return workflowRunModelToResponseDto(wR), nil
@@ -290,6 +309,7 @@ func (wS WorkflowService) HardDeleteWorkflowRun(
 ) (WorkflowRunResponseDto, error) {
 	wR, err := wS.Repository.HardDeleteWorkflowRun(ctx, uId, wRId)
 	if err != nil {
+		return WorkflowRunResponseDto{}, err
 	}
 
 	return workflowRunModelToResponseDto(wR), nil
