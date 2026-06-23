@@ -30,7 +30,7 @@ const (
 type TaskDefinition struct {
 	model.BaseModel
 	WorkflowDefinitionID uuid.UUID
-	WorkflowDefinition   workflow.WorkflowDefinition
+	WorkflowDefinition   workflow.WorkflowDefinition `json:"-"`
 	Name                 string
 	Description          string
 	TaskType             TaskType
@@ -38,18 +38,18 @@ type TaskDefinition struct {
 
 type TaskDependency struct {
 	model.BaseModel
-	TaskID         uuid.UUID
-	Task           TaskDefinition
-	DependOnTaskID uuid.UUID
-	DependOnTask   TaskDefinition
+	TaskID         uuid.UUID      `gorm:"uniqueIndex:idx_task_dependency"`
+	Task           TaskDefinition `json:"-"`
+	DependOnTaskID uuid.UUID      `gorm:"uniqueIndex:idx_task_dependency"`
+	DependOnTask   TaskDefinition `json:"-"`
 }
 
 type TaskRun struct {
 	model.BaseModel
-	WorkflowRunID    uuid.UUID
-	WorkflowRun      workflow.WorkflowRun
-	TaskDefinitionID uuid.UUID
-	TaskDefinition   TaskDefinition
+	WorkflowRunID    uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
+	WorkflowRun      workflow.WorkflowRun `json:"-"`
+	TaskDefinitionID uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
+	TaskDefinition   TaskDefinition       `json:"-"`
 	Status           TaskRunStatus
 	RetryCount       uint
 	MaxRetries       uint
@@ -63,18 +63,12 @@ type TaskRun struct {
 
 type TaskAttempt struct {
 	model.BaseModel
-	TaskRunID     uuid.UUID
-	TaskRun       TaskRun
-	AttemptNumber uint
+	TaskRunID     uuid.UUID `gorm:"uniqueIndex:idx_task_attempt"`
+	TaskRun       TaskRun   `json:"-"`
+	AttemptNumber uint      `gorm:"uniqueIndex:idx_task_attempt"`
 	WorkerID      string
 	Status        TaskRunStatus
 	StartedAt     *time.Time
 	CompletedAt   *time.Time
-	log           *string
-}
-
-type TaskEvent struct {
-	model.BaseModel
-	WorkflowRunID uuid.UUID
-	WorkflowRun   workflow.WorkflowRun
+	Log           *string
 }

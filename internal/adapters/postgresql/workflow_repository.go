@@ -301,3 +301,17 @@ func (wRIP WorkflowRepositoryInternalPostgres) GetWorkflowRunById(
 	result := wRIP.database.WithContext(ctx).Where("id = ?", wRId).First(&wR)
 	return wR, result.Error
 }
+
+func (wRIP WorkflowRepositoryInternalPostgres) UpdateWorkflowRunByIdInternal(
+	ctx context.Context,
+	wRId uuid.UUID,
+	newWR map[string]any,
+) (workflow.WorkflowRun, error) {
+	wR := workflow.WorkflowRun{}
+	result := wRIP.database.WithContext(ctx).
+		Where("id = ?", wRId).
+		Clauses(clause.Returning{}).
+		Model(&wR).
+		Updates(newWR)
+	return wR, repository.CheckRowsAffected(result)
+}
