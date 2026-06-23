@@ -63,7 +63,7 @@ func (w Worker) Run(ctx context.Context) {
 
 			if err != nil {
 				slog.Error("Worker Run executor.Execute", "workerID", w.workerID, "error", err)
-				taskRunStatus = task.FAILED
+				taskRunStatus = task.TASK_ATTEMPT_FAILED
 			}
 
 			endedAt := time.Now()

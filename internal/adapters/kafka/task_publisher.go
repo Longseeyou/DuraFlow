@@ -25,7 +25,7 @@ func (publisher *TaskPublisher) PublishTask(ctx context.Context, command task.Co
 	return publisher.producer.SendMessage(
 		ctx,
 		publisher.topic,
-		[]byte(command.WorkflowRunID.String()),
+		command.WorkflowRunID.String(),
 		payload,
 	)
 }
