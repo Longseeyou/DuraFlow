@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/message"
@@ -11,18 +12,28 @@ import (
 )
 
 type Worker struct {
+	workerID string
 	consumer message.Consumer
 	producer message.Producer
 }
 
-func NewWorker(consumer message.Consumer, producer message.Producer) Worker {
-	return Worker{consumer: consumer, producer: producer}
+func NewWorker(workerID string, consumer message.Consumer, producer message.Producer) Worker {
+	return Worker{workerID: workerID, consumer: consumer, producer: producer}
 }
 
 func (w Worker) Run(ctx context.Context) {
+	slog.Info("Worker Run started", "workerID", w.workerID)
 	for {
 		msg, err := w.consumer.ReceiveMessage(ctx)
 		if err != nil {
+			slog.Error(
+				"Worker Run consumer.ReceiveMessage",
+				"workerID",
+				w.workerID,
+				"error",
+				err,
+			)
+			continue
 		}
 
 		switch string(msg.Key[:]) {
@@ -30,18 +41,28 @@ func (w Worker) Run(ctx context.Context) {
 			var tCRequest task.TaskCommandRequest
 			err = json.Unmarshal(msg.Value, &tCRequest)
 			if err != nil {
+				slog.Error("Worker Run json.Unmarshal", "workerID", w.workerID, "error", err)
+				continue
 			}
 
 			startedAt := time.Now()
 
 			executor, err := executorimpl.NewTaskExecutor(tCRequest.TaskType)
 			if err != nil {
-
+				slog.Error(
+					"Worker Run executorimpl.NewTaskExecutor",
+					"workerID",
+					w.workerID,
+					"error",
+					err,
+				)
+				continue
 			}
 
 			taskOutput, taskLog, taskRunStatus, err := executor.Execute(ctx, *tCRequest.Input)
 
 			if err != nil {
+				slog.Error("Worker Run executor.Execute", "workerID", w.workerID, "error", err)
 				taskRunStatus = task.FAILED
 			}
 
