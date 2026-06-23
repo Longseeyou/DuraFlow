@@ -34,8 +34,7 @@ type WorkflowRunRequestDto struct {
 
 type WorkflowRunResponseDto struct {
 	dto.ResponseDto
-	Status      WorkflowRunStatus
-	StartedAt   time.Time
-	CompletedAt time.Time
-	CancelledAt time.Time
+	Status    WorkflowRunStatus
+	StartedAt time.Time
+	EndedAt   time.Time
 }

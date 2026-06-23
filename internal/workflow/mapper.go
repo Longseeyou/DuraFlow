@@ -41,7 +41,6 @@ func workflowRunModelToResponseDto(wR WorkflowRun) WorkflowRunResponseDto {
 	wRDto.BaseModelToResponseDto(wR)
 	wRDto.Status = wR.Status
 	wRDto.StartedAt = *wR.StartedAt
-	wRDto.CompletedAt = *wR.CompletedAt
-	wRDto.CancelledAt = *wR.CancelledAt
+	wRDto.EndedAt = *wR.EndedAt
 	return wRDto
 }

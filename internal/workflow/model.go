@@ -1,28 +1,29 @@
 package workflow
 
 import (
+	"time"
+
 	"github.com/Longseeyou/DuraFlow/internal/shared/model"
 	"github.com/Longseeyou/DuraFlow/internal/user"
 	"github.com/google/uuid"
-	"time"
 )
 
-type WorkflowDefinitionStatus int
+type WorkflowDefinitionStatus string
 
 const (
-	DRAFTED WorkflowDefinitionStatus = iota
-	ACTIVATE
-	ARCHIVED
+	DRAFTED  WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_DRAFTED"
+	ACTIVATE WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ACTIVATE"
+	ARCHIVED WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ARCHIVED"
 )
 
-type WorkflowRunStatus int
+type WorkflowRunStatus string
 
 const (
-	PENDING WorkflowRunStatus = iota
-	RUNNING
-	COMPLETED
-	FAILED
-	CANCELLED
+	PENDING   WorkflowRunStatus = "WORKFLOW_RUN_PENDING"
+	RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
+	COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
+	FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
+	// CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
 )
 
 type Workflow struct {
@@ -47,6 +48,5 @@ type WorkflowRun struct {
 	WorkflowDefinition   WorkflowDefinition
 	Status               WorkflowRunStatus
 	StartedAt            *time.Time
-	CompletedAt          *time.Time
-	CancelledAt          *time.Time
+	EndedAt              *time.Time
 }
