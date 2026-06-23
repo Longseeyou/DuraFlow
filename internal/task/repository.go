@@ -111,6 +111,7 @@ type TaskRepositoryInternal interface {
 	TaskDependencyStoreInternal
 	TaskRunStoreInternal
 	TaskAttemptStoreInternal
+	TaskEventStoreInternal
 }
 
 type TaskDefinitionStoreInternal interface {
@@ -119,9 +120,15 @@ type TaskDefinitionStoreInternal interface {
 
 type TaskDependencyStoreInternal interface {
 	GetTaskDependencyById(ctx context.Context, tDpId uuid.UUID) (TaskDependency, error)
+	GetTaskDependenciesByWorkflowDefinitionId(
+		ctx context.Context,
+		wDId uuid.UUID,
+	) ([]TaskDependency, error)
 }
 
 type TaskRunStoreInternal interface {
+	GetTaskRunById(ctx context.Context, tRId uuid.UUID) (TaskRun, error)
+	GetTaskRunsByWorkflowRunId(ctx context.Context, wRId uuid.UUID) ([]TaskRun, error)
 	UpdateTaskRunById(
 		ctx context.Context,
 		tRId uuid.UUID,
@@ -131,10 +138,21 @@ type TaskRunStoreInternal interface {
 
 type TaskAttemptStoreInternal interface {
 	CreateTaskAttempt(ctx context.Context, tA TaskAttempt) (TaskAttempt, error)
+	DeleteTaskAttemptById(ctx context.Context, tAId uuid.UUID) error
+	GetTaskAttemptByTaskRunAndNumber(
+		ctx context.Context,
+		tRId uuid.UUID,
+		attemptNumber uint,
+	) (TaskAttempt, error)
 	UpdateTaskAttemptById(
 		ctx context.Context,
 		tAId uuid.UUID,
 		newTA map[string]any,
 	) (TaskAttempt, error)
 	TaskAttemptRunningIdempotency(ctx context.Context, tAId uuid.UUID) (bool, error)
+}
+
+type TaskEventStoreInternal interface {
+	TaskEventExists(ctx context.Context, eventId uuid.UUID) (bool, error)
+	CreateTaskEvent(ctx context.Context, event TaskEvent) (TaskEvent, error)
 }

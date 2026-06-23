@@ -94,4 +94,9 @@ type WorkflowDefinitionStoreInternal interface {
 
 type WorkflowRunStoreInternal interface {
 	GetWorkflowRunById(ctx context.Context, wRId uuid.UUID) (WorkflowRun, error)
+	UpdateWorkflowRunByIdInternal(
+		ctx context.Context,
+		wRId uuid.UUID,
+		newWR map[string]any,
+	) (WorkflowRun, error)
 }

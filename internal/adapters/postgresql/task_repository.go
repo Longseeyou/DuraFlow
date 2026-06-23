@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/repository"
 	"github.com/Longseeyou/DuraFlow/internal/task"
@@ -416,6 +417,42 @@ func (tRIP TaskRepositoryInternalPostgres) GetTaskDependencyById(
 	return tDp, result.Error
 }
 
+func (tRIP TaskRepositoryInternalPostgres) GetTaskDependenciesByWorkflowDefinitionId(
+	ctx context.Context,
+	wDId uuid.UUID,
+) ([]task.TaskDependency, error) {
+	var dependencies []task.TaskDependency
+	result := tRIP.database.WithContext(ctx).
+		Joins("JOIN task_definitions ON task_definitions.id = task_dependencies.task_id").
+		Where("task_definitions.workflow_definition_id = ?", wDId).
+		Find(&dependencies)
+	return dependencies, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) GetTaskRunById(
+	ctx context.Context,
+	tRId uuid.UUID,
+) (task.TaskRun, error) {
+	var tR task.TaskRun
+	result := tRIP.database.WithContext(ctx).
+		Preload("TaskDefinition").
+		Where("id = ?", tRId).
+		First(&tR)
+	return tR, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) GetTaskRunsByWorkflowRunId(
+	ctx context.Context,
+	wRId uuid.UUID,
+) ([]task.TaskRun, error) {
+	var taskRuns []task.TaskRun
+	result := tRIP.database.WithContext(ctx).
+		Preload("TaskDefinition").
+		Where("workflow_run_id = ?", wRId).
+		Find(&taskRuns)
+	return taskRuns, result.Error
+}
+
 func (tRIP TaskRepositoryInternalPostgres) UpdateTaskRunById(
 	ctx context.Context,
 	tRId uuid.UUID,
@@ -427,7 +464,7 @@ func (tRIP TaskRepositoryInternalPostgres) UpdateTaskRunById(
 		Clauses(clause.Returning{}).
 		Model(&tR).
 		Updates(newTR)
-	return tR, result.Error
+	return tR, repository.CheckRowsAffected(result)
 }
 
 func (tRIP TaskRepositoryInternalPostgres) CreateTaskAttempt(
@@ -436,6 +473,28 @@ func (tRIP TaskRepositoryInternalPostgres) CreateTaskAttempt(
 ) (task.TaskAttempt, error) {
 	result := tRIP.database.WithContext(ctx).Create(&tA)
 	return tA, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) DeleteTaskAttemptById(
+	ctx context.Context,
+	tAId uuid.UUID,
+) error {
+	result := tRIP.database.WithContext(ctx).
+		Unscoped().
+		Delete(&task.TaskAttempt{}, "id = ?", tAId)
+	return repository.CheckRowsAffected(result)
+}
+
+func (tRIP TaskRepositoryInternalPostgres) GetTaskAttemptByTaskRunAndNumber(
+	ctx context.Context,
+	tRId uuid.UUID,
+	attemptNumber uint,
+) (task.TaskAttempt, error) {
+	var attempt task.TaskAttempt
+	result := tRIP.database.WithContext(ctx).
+		Where("task_run_id = ? AND attempt_number = ?", tRId, attemptNumber).
+		First(&attempt)
+	return attempt, result.Error
 }
 
 func (tRIP TaskRepositoryInternalPostgres) UpdateTaskAttemptById(
@@ -463,4 +522,24 @@ func (tRIP TaskRepositoryInternalPostgres) TaskAttemptRunningIdempotency(
 		Model(&tA).
 		Updates(map[string]any{"status": task.TASK_ATTEMPT_RUNNING})
 	return result.RowsAffected == 1, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) TaskEventExists(
+	ctx context.Context,
+	eventId uuid.UUID,
+) (bool, error) {
+	var event task.TaskEvent
+	result := tRIP.database.WithContext(ctx).Select("id").Where("id = ?", eventId).First(&event)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	return result.Error == nil, result.Error
+}
+
+func (tRIP TaskRepositoryInternalPostgres) CreateTaskEvent(
+	ctx context.Context,
+	event task.TaskEvent,
+) (task.TaskEvent, error) {
+	result := tRIP.database.WithContext(ctx).Create(&event)
+	return event, result.Error
 }

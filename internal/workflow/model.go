@@ -29,7 +29,7 @@ const (
 type Workflow struct {
 	model.BaseModel
 	UserID      uuid.UUID
-	User        user.User
+	User        user.User `json:"-"`
 	Name        string
 	Description string
 }
@@ -37,7 +37,7 @@ type Workflow struct {
 type WorkflowDefinition struct {
 	model.BaseModel
 	WorkflowID uuid.UUID
-	Workflow   Workflow
+	Workflow   Workflow `json:"-"`
 	Version    uint
 	Status     WorkflowDefinitionStatus
 }
@@ -45,7 +45,7 @@ type WorkflowDefinition struct {
 type WorkflowRun struct {
 	model.BaseModel
 	WorkflowDefinitionID uuid.UUID
-	WorkflowDefinition   WorkflowDefinition
+	WorkflowDefinition   WorkflowDefinition `json:"-"`
 	Status               WorkflowRunStatus
 	StartedAt            *time.Time
 	EndedAt              *time.Time
