@@ -451,3 +451,16 @@ func (tRIP TaskRepositoryInternalPostgres) UpdateTaskAttemptById(
 		Updates(newTA)
 	return tA, repository.CheckRowsAffected(result)
 }
+
+func (tRIP TaskRepositoryInternalPostgres) TaskAttemptRunningIdempotency(
+	ctx context.Context,
+	tAId uuid.UUID,
+) (bool, error) {
+	var tA task.TaskAttempt
+	result := tRIP.database.WithContext(ctx).
+		Where("id = ? AND status = ?", tAId, task.TASK_ATTEMPT_RUNNING).
+		Clauses(clause.Returning{}).
+		Model(&tA).
+		Updates(map[string]any{"status": task.TASK_ATTEMPT_RUNNING})
+	return result.RowsAffected == 1, result.Error
+}

@@ -12,9 +12,10 @@ import (
 )
 
 type Worker struct {
-	workerID string
-	consumer message.Consumer
-	producer message.Producer
+	workerID       string
+	consumer       message.Consumer
+	producer       message.Producer
+	taskRepository task.TaskRepositoryInternal
 }
 
 func NewWorker(workerID string, consumer message.Consumer, producer message.Producer) Worker {
@@ -45,6 +46,17 @@ func (w Worker) Run(ctx context.Context) {
 				continue
 			}
 
+			valid, err := w.taskRepository.TaskAttemptRunningIdempotency(
+				ctx,
+				tCRequest.TaskAttemptID,
+			)
+			if err != nil {
+				continue
+			}
+			if !valid {
+				continue
+			}
+
 			startedAt := time.Now()
 
 			executor, err := executorimpl.NewTaskExecutor(tCRequest.TaskType)
@@ -56,20 +68,34 @@ func (w Worker) Run(ctx context.Context) {
 					"error",
 					err,
 				)
+
+				err = w.producer.SendMessage(
+					ctx,
+					"TaskCommandResponse",
+					"Error",
+					[]byte(err.Error()),
+				)
+				if err != nil {
+					slog.Error(
+						"Worker Run producer.SendMessage", "workerID", w.workerID, "error", err,
+					)
+				}
 				continue
 			}
 
-			taskOutput, taskLog, taskRunStatus, err := executor.Execute(ctx, *tCRequest.Input)
+			slog.Info("Worker Run executor.Execute start", "workerID", w.workerID)
+			taskOutput, taskLog, taskAttemptStatus, err := executor.Execute(ctx, *tCRequest.Input)
+			slog.Info("Worker Run executor.Execute end", "workerID", w.workerID)
 
 			if err != nil {
 				slog.Error("Worker Run executor.Execute", "workerID", w.workerID, "error", err)
-				taskRunStatus = task.FAILED
+				taskAttemptStatus = task.TASK_ATTEMPT_FAILED
 			}
 
 			endedAt := time.Now()
 
 			var tCResponse task.TaskCommandResponse
-			tCResponse.Status = &taskRunStatus
+			tCResponse.Status = &taskAttemptStatus
 			tCResponse.StartedAt = &startedAt
 			tCResponse.EndedAt = &endedAt
 			tCResponse.Output = &taskOutput
@@ -77,7 +103,8 @@ func (w Worker) Run(ctx context.Context) {
 
 			value, err := json.Marshal(tCResponse)
 			if err != nil {
-
+				slog.Error("Worker Run json.Marshal", "workerID", w.workerID, "error", err)
+				continue
 			}
 
 			err = w.producer.SendMessage(
@@ -87,7 +114,9 @@ func (w Worker) Run(ctx context.Context) {
 				value,
 			)
 			if err != nil {
-
+				slog.Error(
+					"Worker Run producer.SendMessage", "workerID", w.workerID, "error", err,
+				)
 			}
 		}
 	}

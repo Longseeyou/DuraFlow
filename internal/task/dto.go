@@ -83,18 +83,20 @@ type TaskAttemptInternalDto struct {
 	Status        *TaskAttemptStatus
 	StartedAt     *time.Time
 	EndedAt       *time.Time
-	log           *string
+	Log           *string
 }
 
 type TaskCommandRequest struct {
-	TaskType TaskType
-	Input    *string
+	TaskAttemptID uuid.UUID
+	TaskType      TaskType
+	Input         *string
 }
 
 type TaskCommandResponse struct {
-	Status    *TaskAttemptStatus
-	StartedAt *time.Time
-	EndedAt   *time.Time
-	Output    *string
-	Log       *string
+	TaskAttemptID uuid.UUID
+	Status        *TaskAttemptStatus
+	StartedAt     *time.Time
+	EndedAt       *time.Time
+	Output        *string
+	Log           *string
 }

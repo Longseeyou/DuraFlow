@@ -499,8 +499,8 @@ func (s TaskServiceInternal) UpdateTaskAttemptById(
 	if tADto.EndedAt != nil {
 		newTA["ended_at"] = *tADto.EndedAt
 	}
-	if tADto.log != nil {
-		newTA["log"] = tADto.log
+	if tADto.Log != nil {
+		newTA["log"] = tADto.Log
 	}
 
 	tA, err := s.repository.UpdateTaskAttemptById(ctx, tAId, newTA)

@@ -29,7 +29,7 @@ func (e MockExecutor) Execute(
 		return "task error", "task error", task.TASK_ATTEMPT_FAILED, nil
 	} else if r < 0.9 {
 		return "executor error", "executor error", task.TASK_ATTEMPT_FAILED, fmt.Errorf(
-			"MockExecutor Execute executor error",
+			"MockExecutor error",
 		)
 	} else {
 		os.Exit(1)
