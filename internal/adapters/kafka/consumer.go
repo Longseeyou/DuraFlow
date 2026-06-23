@@ -11,7 +11,7 @@ import (
 
 type consumerKafka struct {
 	id string
-	*config
+	*KafkaConfig
 
 	groupID string
 	topics  []string
@@ -23,17 +23,22 @@ type consumerKafka struct {
 	ctxCancel context.CancelFunc
 }
 
-func NewConsumerKafka(id, groupID string, topics []string) *consumerKafka {
+func NewConsumerKafka(
+	id string,
+	config *KafkaConfig,
+	groupID string,
+	topics []string,
+) *consumerKafka {
 	return &consumerKafka{
-		id:       id,
-		groupID:  groupID,
-		topics:   topics,
-		config:   new(config),
-		messages: make(chan *message.Message, 100),
+		id:          id,
+		KafkaConfig: config,
+		groupID:     groupID,
+		topics:      topics,
+		messages:    make(chan *message.Message, 100),
 	}
 }
 
-func (c *consumerKafka) Start(ctx context.Context) {
+func (c *consumerKafka) Start(ctx context.Context) error {
 	cfg := sarama.NewConfig()
 	cfg.Version = sarama.V2_8_0_0
 
@@ -48,8 +53,7 @@ func (c *consumerKafka) Start(ctx context.Context) {
 
 	group, err := sarama.NewConsumerGroup(c.Addrs, c.groupID, cfg)
 	if err != nil {
-		slog.Error("Failed to create consumer group", "error", err)
-		return
+		return err
 	}
 
 	c.consumerGroup = group
@@ -80,20 +84,24 @@ func (c *consumerKafka) Start(ctx context.Context) {
 		"topics",
 		c.topics,
 	)
+
+	return nil
 }
 
-func (c *consumerKafka) Stop() {
+func (c *consumerKafka) Stop() error {
 	if c.ctxCancel != nil {
 		c.ctxCancel()
 	}
 
 	if c.consumerGroup != nil {
-		if err := c.consumerGroup.Close(); err != nil {
-			slog.Error("Failed to close consumer group", "error", err)
+		err := c.consumerGroup.Close()
+		if err != nil {
+			return err
 		}
 	}
 
 	slog.Info("Kafka consumer stopped")
+	return nil
 }
 
 func (c *consumerKafka) ReceiveMessage(

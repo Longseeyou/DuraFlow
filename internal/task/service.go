@@ -481,8 +481,8 @@ func (s TaskServiceInternal) UpdateTaskAttemptById(
 	if tADto.StartedAt != nil {
 		newTA["started_at"] = *tADto.StartedAt
 	}
-	if tADto.CompletedAt != nil {
-		newTA["completed_at"] = *tADto.CompletedAt
+	if tADto.EndedAt != nil {
+		newTA["ended_at"] = *tADto.EndedAt
 	}
 	if tADto.log != nil {
 		newTA["log"] = tADto.log

@@ -53,7 +53,6 @@ func taskRunModelToResponseDto(tR TaskRun) TaskRunResponseDto {
 	tRDto.MaxRetries = tR.MaxRetries
 	tRDto.Input = tR.Input
 	tRDto.Output = tR.Output
-	tRDto.Error = tR.Error
 	fmt.Println("missing ScheduledAt, StartedAt, CompletedAt")
 	return tRDto
 }
@@ -85,10 +84,10 @@ func taskRunInternalDtoToMap(tRDto TaskRunInternalDto) (map[string]any, error) {
 		}
 		tR["StartedAt"] = *tRDto.StartedAt
 	case COMPLETED:
-		if tRDto.CompletedAt == nil {
-			return nil, errors.New("Missing CompletedAt for status COMPLETED")
+		if tRDto.EndedAt == nil {
+			return nil, errors.New("Missing EndedAt for status COMPLETED")
 		}
-		tR["CompletedAt"] = *tRDto.CompletedAt
+		tR["EndedAt"] = *tRDto.EndedAt
 	}
 
 	if tRDto.RetryCount != nil {

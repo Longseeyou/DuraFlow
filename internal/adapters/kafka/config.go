@@ -2,12 +2,12 @@ package kafka
 
 import "time"
 
-type config struct {
+type KafkaConfig struct {
 	AddrsStr string
 
 	Addrs       []string
-	maxRetries  int
-	maxWaitTime time.Duration
+	MaxRetries  int
+	MaxWaitTime time.Duration
 
 	// Authentication
 	SASLUser string
