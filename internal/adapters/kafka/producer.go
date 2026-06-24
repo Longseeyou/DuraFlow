@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/IBM/sarama"
+	"github.com/Longseeyou/DuraFlow/internal/shared/message"
 )
 
 type kafkaProducer struct {
@@ -13,7 +14,7 @@ type kafkaProducer struct {
 	producer *sarama.SyncProducer
 }
 
-func NewKafkaProducer(id string, config *KafkaConfig) *kafkaProducer {
+func NewKafkaProducer(id string, config *KafkaConfig) message.Producer {
 	return &kafkaProducer{
 		id:          id,
 		KafkaConfig: config,

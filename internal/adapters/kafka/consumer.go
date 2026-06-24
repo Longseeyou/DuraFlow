@@ -27,7 +27,7 @@ func NewKafkaConsumer(
 	config *KafkaConfig,
 	groupID string,
 	topics []string,
-) *kafkaConsumer {
+) message.Consumer {
 	return &kafkaConsumer{
 		id:          id,
 		KafkaConfig: config,

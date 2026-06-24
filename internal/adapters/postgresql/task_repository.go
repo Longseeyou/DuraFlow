@@ -16,10 +16,10 @@ type PostgresTaskRepository struct {
 }
 
 func NewPostgresTaskRepository(database *gorm.DB) task.TaskRepository {
-	return PostgresTaskRepository{database: database}
+	return &PostgresTaskRepository{database: database}
 }
 
-func (pTR PostgresTaskRepository) CreateTaskDefinition(
+func (pTR *PostgresTaskRepository) CreateTaskDefinition(
 	ctx context.Context,
 	tD task.TaskDefinition,
 ) (task.TaskDefinition, error) {
@@ -27,7 +27,7 @@ func (pTR PostgresTaskRepository) CreateTaskDefinition(
 	return tD, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskDefinitionByWorkflowDefinition(
+func (pTR *PostgresTaskRepository) GetTaskDefinitionByWorkflowDefinition(
 	ctx context.Context,
 	uId uuid.UUID,
 	wDId uuid.UUID,
@@ -41,7 +41,7 @@ func (pTR PostgresTaskRepository) GetTaskDefinitionByWorkflowDefinition(
 	return tD, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskDefinitionByUserAndId(
+func (pTR *PostgresTaskRepository) GetTaskDefinitionByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDId uuid.UUID,
@@ -54,7 +54,7 @@ func (pTR PostgresTaskRepository) GetTaskDefinitionByUserAndId(
 	return tD, result.Error
 }
 
-func (pTR PostgresTaskRepository) filterTaskDefinitionByUserAndId(
+func (pTR *PostgresTaskRepository) filterTaskDefinitionByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDId uuid.UUID,
@@ -68,7 +68,7 @@ func (pTR PostgresTaskRepository) filterTaskDefinitionByUserAndId(
 		Where("task_definitions.id = ?", tDId)
 }
 
-func (pTR PostgresTaskRepository) UpdateTaskDefinitionByUserAndId(
+func (pTR *PostgresTaskRepository) UpdateTaskDefinitionByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDId uuid.UUID,
@@ -82,7 +82,7 @@ func (pTR PostgresTaskRepository) UpdateTaskDefinitionByUserAndId(
 	return tD, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) SoftDeleteTaskDefinition(
+func (pTR *PostgresTaskRepository) SoftDeleteTaskDefinition(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDId uuid.UUID,
@@ -94,7 +94,7 @@ func (pTR PostgresTaskRepository) SoftDeleteTaskDefinition(
 	return tD, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) HardDeleteTaskDefinition(
+func (pTR *PostgresTaskRepository) HardDeleteTaskDefinition(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDId uuid.UUID,
@@ -109,7 +109,7 @@ func (pTR PostgresTaskRepository) HardDeleteTaskDefinition(
 
 // TaskDependency
 
-func (pTR PostgresTaskRepository) CreateTaskDependency(
+func (pTR *PostgresTaskRepository) CreateTaskDependency(
 	ctx context.Context,
 	tDp task.TaskDependency,
 ) (task.TaskDependency, error) {
@@ -117,7 +117,7 @@ func (pTR PostgresTaskRepository) CreateTaskDependency(
 	return tDp, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskDependencyByWorkflowDefinition(
+func (pTR *PostgresTaskRepository) GetTaskDependencyByWorkflowDefinition(
 	ctx context.Context,
 	uId uuid.UUID,
 	wDId uuid.UUID,
@@ -133,7 +133,7 @@ func (pTR PostgresTaskRepository) GetTaskDependencyByWorkflowDefinition(
 	return tDp, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskDependencyByUserAndId(
+func (pTR *PostgresTaskRepository) GetTaskDependencyByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDpId uuid.UUID,
@@ -148,7 +148,7 @@ func (pTR PostgresTaskRepository) GetTaskDependencyByUserAndId(
 	return tDp, result.Error
 }
 
-func (pTR PostgresTaskRepository) filterTaskDependencyByUserAndId(
+func (pTR *PostgresTaskRepository) filterTaskDependencyByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDpId uuid.UUID,
@@ -169,7 +169,7 @@ func (pTR PostgresTaskRepository) filterTaskDependencyByUserAndId(
 		Where("task_dependencys.id = ?", tDpId)
 }
 
-func (pTR PostgresTaskRepository) UpdateTaskDependencyByUserAndId(
+func (pTR *PostgresTaskRepository) UpdateTaskDependencyByUserAndId(
 	ctx context.Context, uId uuid.UUID,
 	tDpId uuid.UUID,
 	newTDp map[string]any,
@@ -182,7 +182,7 @@ func (pTR PostgresTaskRepository) UpdateTaskDependencyByUserAndId(
 	return tDp, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) SoftDeleteTaskDependency(
+func (pTR *PostgresTaskRepository) SoftDeleteTaskDependency(
 	ctx context.Context,
 	uId uuid.UUID,
 	tDpId uuid.UUID,
@@ -194,7 +194,7 @@ func (pTR PostgresTaskRepository) SoftDeleteTaskDependency(
 	return tDp, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) HardDeleteTaskDependency(
+func (pTR *PostgresTaskRepository) HardDeleteTaskDependency(
 	ctx context.Context, uId uuid.UUID,
 	tDpId uuid.UUID,
 ) (task.TaskDependency, error) {
@@ -208,7 +208,7 @@ func (pTR PostgresTaskRepository) HardDeleteTaskDependency(
 
 // TaskRun
 
-func (pTR PostgresTaskRepository) CreateTaskRun(
+func (pTR *PostgresTaskRepository) CreateTaskRun(
 	ctx context.Context,
 	tR task.TaskRun,
 ) (task.TaskRun, error) {
@@ -216,7 +216,7 @@ func (pTR PostgresTaskRepository) CreateTaskRun(
 	return tR, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskRunByWorkflowRun(
+func (pTR *PostgresTaskRepository) GetTaskRunByWorkflowRun(
 	ctx context.Context,
 	uId uuid.UUID,
 	wRId uuid.UUID,
@@ -232,7 +232,7 @@ func (pTR PostgresTaskRepository) GetTaskRunByWorkflowRun(
 	return tR, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskRunByUserAndId(
+func (pTR *PostgresTaskRepository) GetTaskRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -247,7 +247,7 @@ func (pTR PostgresTaskRepository) GetTaskRunByUserAndId(
 	return tR, result.Error
 }
 
-func (pTR PostgresTaskRepository) filterTaskRunByUserAndId(
+func (pTR *PostgresTaskRepository) filterTaskRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -268,7 +268,7 @@ func (pTR PostgresTaskRepository) filterTaskRunByUserAndId(
 		Where("task_runs.id = ?", tRId)
 }
 
-func (pTR PostgresTaskRepository) UpdateTaskRunByUserAndId(
+func (pTR *PostgresTaskRepository) UpdateTaskRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -282,7 +282,7 @@ func (pTR PostgresTaskRepository) UpdateTaskRunByUserAndId(
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) SoftDeleteTaskRun(
+func (pTR *PostgresTaskRepository) SoftDeleteTaskRun(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -292,7 +292,7 @@ func (pTR PostgresTaskRepository) SoftDeleteTaskRun(
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) HardDeleteTaskRun(
+func (pTR *PostgresTaskRepository) HardDeleteTaskRun(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -307,7 +307,7 @@ func (pTR PostgresTaskRepository) HardDeleteTaskRun(
 
 // TaskAttempt
 
-func (pTR PostgresTaskRepository) GetTaskAttemptByTaskRun(
+func (pTR *PostgresTaskRepository) GetTaskAttemptByTaskRun(
 	ctx context.Context,
 	uId uuid.UUID,
 	tRId uuid.UUID,
@@ -324,7 +324,7 @@ func (pTR PostgresTaskRepository) GetTaskAttemptByTaskRun(
 	return tA, result.Error
 }
 
-func (pTR PostgresTaskRepository) GetTaskAttemptByUserAndId(
+func (pTR *PostgresTaskRepository) GetTaskAttemptByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tAId uuid.UUID,
@@ -341,7 +341,7 @@ func (pTR PostgresTaskRepository) GetTaskAttemptByUserAndId(
 	return tA, result.Error
 }
 
-func (pTR PostgresTaskRepository) filterTaskAttemptByUserAndId(
+func (pTR *PostgresTaskRepository) filterTaskAttemptByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	tAId uuid.UUID,
@@ -364,7 +364,7 @@ func (pTR PostgresTaskRepository) filterTaskAttemptByUserAndId(
 		Where("task_attempts.id = ?", tAId)
 }
 
-func (pTR PostgresTaskRepository) SoftDeleteTaskAttempt(
+func (pTR *PostgresTaskRepository) SoftDeleteTaskAttempt(
 	ctx context.Context,
 	uId uuid.UUID,
 	tAId uuid.UUID,
@@ -376,7 +376,7 @@ func (pTR PostgresTaskRepository) SoftDeleteTaskAttempt(
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (pTR PostgresTaskRepository) HardDeleteTaskAttempt(
+func (pTR *PostgresTaskRepository) HardDeleteTaskAttempt(
 	ctx context.Context,
 	uId uuid.UUID,
 	tAId uuid.UUID,
@@ -396,10 +396,10 @@ type PostgresTaskRepositoryInternal struct {
 }
 
 func NewPostgresTaskRepositoryInternal(database *gorm.DB) task.TaskRepositoryInternal {
-	return PostgresTaskRepositoryInternal{database: database}
+	return &PostgresTaskRepositoryInternal{database: database}
 }
 
-func (pTRI PostgresTaskRepositoryInternal) GetTaskDefinitionById(
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskDefinitionById(
 	ctx context.Context,
 	tDId uuid.UUID,
 ) (task.TaskDefinition, error) {
@@ -408,7 +408,7 @@ func (pTRI PostgresTaskRepositoryInternal) GetTaskDefinitionById(
 	return tD, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) GetTaskDependencyById(
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependencyById(
 	ctx context.Context,
 	tDpId uuid.UUID,
 ) (task.TaskDependency, error) {
@@ -417,7 +417,7 @@ func (pTRI PostgresTaskRepositoryInternal) GetTaskDependencyById(
 	return tDp, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefinitionId(
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefinitionId(
 	ctx context.Context,
 	wDId uuid.UUID,
 ) ([]task.TaskDependency, error) {
@@ -429,7 +429,7 @@ func (pTRI PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefiniti
 	return dependencies, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) GetTaskRunById(
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskRunById(
 	ctx context.Context,
 	tRId uuid.UUID,
 ) (task.TaskRun, error) {
@@ -441,7 +441,7 @@ func (pTRI PostgresTaskRepositoryInternal) GetTaskRunById(
 	return tR, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunId(
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunId(
 	ctx context.Context,
 	wRId uuid.UUID,
 ) ([]task.TaskRun, error) {
@@ -453,7 +453,7 @@ func (pTRI PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunId(
 	return taskRuns, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) UpdateTaskRunById(
+func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunById(
 	ctx context.Context,
 	tRId uuid.UUID,
 	newTR map[string]any,
@@ -467,7 +467,7 @@ func (pTRI PostgresTaskRepositoryInternal) UpdateTaskRunById(
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTRI PostgresTaskRepositoryInternal) CreateTaskAttempt(
+func (pTRI *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	ctx context.Context,
 	tA task.TaskAttempt,
 ) (task.TaskAttempt, error) {
@@ -475,7 +475,7 @@ func (pTRI PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	return tA, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) DeleteTaskAttemptById(
+func (pTRI *PostgresTaskRepositoryInternal) DeleteTaskAttemptById(
 	ctx context.Context,
 	tAId uuid.UUID,
 ) error {
@@ -485,7 +485,7 @@ func (pTRI PostgresTaskRepositoryInternal) DeleteTaskAttemptById(
 	return repository.CheckRowsAffected(result)
 }
 
-func (pTRI PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
 	ctx context.Context,
 	tRId uuid.UUID,
 	attemptNumber uint,
@@ -497,7 +497,7 @@ func (pTRI PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
 	return attempt, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) UpdateTaskAttemptById(
+func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskAttemptById(
 	ctx context.Context,
 	tAId uuid.UUID,
 	newTA map[string]any,
@@ -511,7 +511,7 @@ func (pTRI PostgresTaskRepositoryInternal) UpdateTaskAttemptById(
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (pTRI PostgresTaskRepositoryInternal) TaskAttemptRunningIdempotency(
+func (pTRI *PostgresTaskRepositoryInternal) TaskAttemptRunningIdempotency(
 	ctx context.Context,
 	tAId uuid.UUID,
 ) (bool, error) {
@@ -524,7 +524,7 @@ func (pTRI PostgresTaskRepositoryInternal) TaskAttemptRunningIdempotency(
 	return result.RowsAffected == 1, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) TaskEventExists(
+func (pTRI *PostgresTaskRepositoryInternal) TaskEventExists(
 	ctx context.Context,
 	eventId uuid.UUID,
 ) (bool, error) {
@@ -536,7 +536,7 @@ func (pTRI PostgresTaskRepositoryInternal) TaskEventExists(
 	return result.Error == nil, result.Error
 }
 
-func (pTRI PostgresTaskRepositoryInternal) CreateTaskEvent(
+func (pTRI *PostgresTaskRepositoryInternal) CreateTaskEvent(
 	ctx context.Context,
 	event task.TaskEvent,
 ) (task.TaskEvent, error) {
