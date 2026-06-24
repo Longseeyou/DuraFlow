@@ -18,8 +18,18 @@ type Worker struct {
 	taskRepository task.TaskRepositoryInternal
 }
 
-func NewWorker(workerID string, consumer message.Consumer, producer message.Producer) Worker {
-	return Worker{workerID: workerID, consumer: consumer, producer: producer}
+func NewWorker(
+	workerID string,
+	consumer message.Consumer,
+	producer message.Producer,
+	taskRepository task.TaskRepositoryInternal,
+) Worker {
+	return Worker{
+		workerID:       workerID,
+		consumer:       consumer,
+		producer:       producer,
+		taskRepository: taskRepository,
+	}
 }
 
 func (w Worker) Run(ctx context.Context) {

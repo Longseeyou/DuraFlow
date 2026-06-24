@@ -3,13 +3,12 @@ package kafka
 import (
 	"context"
 	"log/slog"
-	"strings"
 
 	"github.com/IBM/sarama"
 	"github.com/Longseeyou/DuraFlow/internal/shared/message"
 )
 
-type consumerKafka struct {
+type kafkaConsumer struct {
 	id string
 	*KafkaConfig
 
@@ -23,13 +22,13 @@ type consumerKafka struct {
 	ctxCancel context.CancelFunc
 }
 
-func NewConsumerKafka(
+func NewKafkaConsumer(
 	id string,
 	config *KafkaConfig,
 	groupID string,
 	topics []string,
-) *consumerKafka {
-	return &consumerKafka{
+) *kafkaConsumer {
+	return &kafkaConsumer{
 		id:          id,
 		KafkaConfig: config,
 		groupID:     groupID,
@@ -38,7 +37,7 @@ func NewConsumerKafka(
 	}
 }
 
-func (c *consumerKafka) Start(ctx context.Context) error {
+func (c *kafkaConsumer) Start(ctx context.Context) error {
 	cfg := sarama.NewConfig()
 	cfg.Version = sarama.V2_8_0_0
 
@@ -49,9 +48,7 @@ func (c *consumerKafka) Start(ctx context.Context) error {
 		cfg.Net.SASL.Password = c.SASLPass
 	}
 
-	c.Addrs = strings.Split(c.AddrsStr, ",")
-
-	group, err := sarama.NewConsumerGroup(c.Addrs, c.groupID, cfg)
+	group, err := sarama.NewConsumerGroup(c.Addrress, c.groupID, cfg)
 	if err != nil {
 		return err
 	}
@@ -67,7 +64,8 @@ func (c *consumerKafka) Start(ctx context.Context) error {
 		}
 
 		for {
-			if err := group.Consume(runCtx, c.topics, handler); err != nil {
+			err := group.Consume(runCtx, c.topics, handler)
+			if err != nil {
 				slog.Error("Kafka consumer error", "error", err)
 			}
 
@@ -76,19 +74,10 @@ func (c *consumerKafka) Start(ctx context.Context) error {
 			}
 		}
 	}()
-
-	slog.Info(
-		"Kafka consumer started",
-		"groupID",
-		c.groupID,
-		"topics",
-		c.topics,
-	)
-
 	return nil
 }
 
-func (c *consumerKafka) Stop() error {
+func (c *kafkaConsumer) Stop() error {
 	if c.ctxCancel != nil {
 		c.ctxCancel()
 	}
@@ -100,11 +89,10 @@ func (c *consumerKafka) Stop() error {
 		}
 	}
 
-	slog.Info("Kafka consumer stopped")
 	return nil
 }
 
-func (c *consumerKafka) ReceiveMessage(
+func (c *kafkaConsumer) ReceiveMessage(
 	ctx context.Context,
 ) (*message.Message, error) {
 	select {
@@ -117,7 +105,7 @@ func (c *consumerKafka) ReceiveMessage(
 }
 
 type consumerGroupHandler struct {
-	consumer *consumerKafka
+	consumer *kafkaConsumer
 }
 
 func (h *consumerGroupHandler) Setup(sarama.ConsumerGroupSession) error {

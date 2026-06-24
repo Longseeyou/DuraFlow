@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 )
 
-type TaskType int
+type TaskType string
 
 const (
-	MOCK_TASK TaskType = iota
+	MOCK_TASK TaskType = "MOCK_TASK"
 )
 
 type TaskRunStatus string

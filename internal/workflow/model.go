@@ -23,7 +23,7 @@ const (
 	RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
 	COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
 	FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
-	// CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
+	CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
 )
 
 type Workflow struct {
