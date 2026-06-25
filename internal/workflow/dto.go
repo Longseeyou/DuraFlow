@@ -18,8 +18,7 @@ type WorkflowResponseDto struct {
 }
 
 type WorkflowDefinitionRequestDto struct {
-	Version *uint
-	Status  *WorkflowDefinitionStatus
+	Status *WorkflowDefinitionStatus
 }
 
 type WorkflowDefinitionResponseDto struct {

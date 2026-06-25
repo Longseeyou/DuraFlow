@@ -38,7 +38,7 @@ type WorkflowDefinition struct {
 	model.BaseModel
 	WorkflowID uuid.UUID
 	Workflow   Workflow `json:"-"`
-	Version    uint
+	Version    uint     `gorm:"uniqueIndex:idx_workflow_definition;autoIncrement"`
 	Status     WorkflowDefinitionStatus
 }
 

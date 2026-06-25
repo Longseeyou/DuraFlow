@@ -126,6 +126,7 @@ func (wS *WorkflowService) CreateWorkflowDefinition(
 
 	wD := WorkflowDefinition{WorkflowID: wId}
 	wD.WorkflowID = wId
+	wD.Status = DRAFTED
 
 	wD, err = wS.repository.CreateWorkflowDefinition(ctx, wD)
 	if err != nil {
@@ -173,9 +174,6 @@ func (wS *WorkflowService) UpdateWorkflowDefinitionById(
 	wDDto WorkflowDefinitionRequestDto,
 ) (WorkflowDefinitionResponseDto, error) {
 	newWD := map[string]any{}
-	if wDDto.Version != nil {
-		newWD["version"] = *wDDto.Version
-	}
 	if wDDto.Status != nil {
 		newWD["status"] = *wDDto.Status
 	}
