@@ -108,6 +108,7 @@ func (wH *WorkflowHandler) getWorkflowByUserAndId(w http.ResponseWriter, r *http
 	wId, err := uuid.Parse(chi.URLParam(r, "wId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wResponseDto, err := wH.service.GetWorkflowByUserAndId(r.Context(), uId, wId)
@@ -128,6 +129,7 @@ func (wH *WorkflowHandler) updateWorkflowById(w http.ResponseWriter, r *http.Req
 	wId, err := uuid.Parse(chi.URLParam(r, "wId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	var wRequestDto workflow.WorkflowRequestDto
@@ -155,6 +157,7 @@ func (wH *WorkflowHandler) deleteWorkflow(w http.ResponseWriter, r *http.Request
 	wId, err := uuid.Parse(chi.URLParam(r, "wId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wResponseDto, err := wH.service.SoftDeleteWorkflow(r.Context(), uId, wId)
@@ -177,6 +180,7 @@ func (wH *WorkflowHandler) createWorkflowDefinition(w http.ResponseWriter, r *ht
 	wId, err := uuid.Parse(chi.URLParam(r, "wId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wDResponseDto, err := wH.service.CreateWorkflowDefinition(r.Context(), uId, wId)
@@ -200,6 +204,7 @@ func (wH *WorkflowHandler) getWorkflowDefinitionByUserAndWorkflow(
 	wId, err := uuid.Parse(chi.URLParam(r, "wId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wDResponseDto, err := wH.service.GetWorkflowDefinitionByUserAndWorkflow(r.Context(), uId, wId)
@@ -223,6 +228,7 @@ func (wH *WorkflowHandler) getWorkflowDefinitionByUserAndId(
 	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wDResponseDto, err := wH.service.GetWorkflowDefinitionByUserAndId(r.Context(), uId, wDId)
@@ -243,6 +249,7 @@ func (wH *WorkflowHandler) updateWorkflowDefinitionById(w http.ResponseWriter, r
 	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	var wDRequestDto workflow.WorkflowDefinitionRequestDto
@@ -275,6 +282,7 @@ func (wH *WorkflowHandler) deleteWorkflowDefinition(w http.ResponseWriter, r *ht
 	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wDResponseDto, err := wH.service.SoftDeleteWorkflowDefinition(r.Context(), uId, wDId)
@@ -297,6 +305,7 @@ func (wH *WorkflowHandler) createWorkflowRun(w http.ResponseWriter, r *http.Requ
 	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wRResponseDto, err := wH.service.CreateWorkflowRun(r.Context(), uId, wDId)
@@ -320,6 +329,7 @@ func (wH *WorkflowHandler) getWorkflowRunByWorkflowDefinition(
 	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wRResponseDto, err := wH.service.GetWorkflowRunByWorkflowDefinition(r.Context(), uId, wDId)
@@ -343,6 +353,7 @@ func (wH *WorkflowHandler) getWorkflowRunByUserAndId(
 	wRId, err := uuid.Parse(chi.URLParam(r, "wRId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wRResponseDto, err := wH.service.GetWorkflowRunByUserAndId(r.Context(), uId, wRId)
@@ -363,6 +374,7 @@ func (wH *WorkflowHandler) updateWorkflowRunById(w http.ResponseWriter, r *http.
 	wRId, err := uuid.Parse(chi.URLParam(r, "wRId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	var wRRequestDto workflow.WorkflowRunRequestDto
@@ -395,6 +407,7 @@ func (wH *WorkflowHandler) deleteWorkflowRun(w http.ResponseWriter, r *http.Requ
 	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	wDResponseDto, err := wH.service.SoftDeleteWorkflowRun(r.Context(), uId, wDId)
