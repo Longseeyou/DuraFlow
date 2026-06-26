@@ -42,6 +42,7 @@ type TaskDefinition struct {
 	Name                 string
 	Description          string
 	TaskType             TaskType
+	Timeout              time.Duration
 }
 
 type TaskDependency struct {
@@ -77,5 +78,6 @@ type TaskAttempt struct {
 	Status        TaskAttemptStatus
 	StartedAt     *time.Time
 	EndedAt       *time.Time
+	TimeoutAt     *time.Time
 	Log           *string
 }

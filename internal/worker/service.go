@@ -64,6 +64,13 @@ func (w Worker) Run(ctx context.Context) {
 				continue
 			}
 			if !valid {
+				slog.Error(
+					"Worker Run taskRepository.TaskAttemptRunningIdempotency",
+					"workerID",
+					w.workerID,
+					"error",
+					"Idempotency",
+				)
 				continue
 			}
 

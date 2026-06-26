@@ -13,6 +13,7 @@ type TaskDefinitionRequestDto struct {
 	Name        *string
 	Description *string
 	TaskType    *TaskType
+	Timeout     *time.Duration
 }
 
 type TaskDefinitionResponseDto struct {
@@ -20,6 +21,7 @@ type TaskDefinitionResponseDto struct {
 	Name        string
 	Description string
 	TaskType    TaskType
+	Timeout     time.Duration
 }
 
 type TaskDependencyRequestDto struct {
@@ -90,6 +92,7 @@ type TaskCommandRequest struct {
 	TaskAttemptID uuid.UUID
 	TaskType      TaskType
 	Input         *string
+	Timeout       *time.Duration
 }
 
 type TaskCommandResponse struct {

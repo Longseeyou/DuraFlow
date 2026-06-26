@@ -9,6 +9,7 @@ func taskDefinitionRequestDtoToModel(tDDto TaskDefinitionRequestDto) TaskDefinit
 	tD.Name = *tDDto.Name
 	tD.Description = *tDDto.Description
 	tD.TaskType = *tDDto.TaskType
+	tD.Timeout = *tDDto.Timeout
 	return tD
 }
 
@@ -17,6 +18,8 @@ func taskDefinitionModelToResponseDto(tD TaskDefinition) TaskDefinitionResponseD
 	tDDto.BaseModelToResponseDto(tD)
 	tDDto.Name = tD.Name
 	tDDto.Description = tD.Description
+	tDDto.TaskType = tD.TaskType
+	tDDto.Timeout = tD.Timeout
 	return tDDto
 }
 
