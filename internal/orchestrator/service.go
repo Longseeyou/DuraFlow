@@ -70,6 +70,35 @@ func (service *Service) ScheduleWorkflow(ctx context.Context, workflowRunID uuid
 	return service.scheduleWorkflow(ctx, workflowRunID)
 }
 
+// ValidateWorkflowDefinition checks the workflow definition's task graph
+// before any workflow run is started or task command is published.
+func (service *Service) ValidateWorkflowDefinition(
+	ctx context.Context,
+	workflowDefinitionID uuid.UUID,
+) error {
+	if workflowDefinitionID == uuid.Nil {
+		return fmt.Errorf("%w: workflow definition ID is required", ErrInvalidWorkflowGraph)
+	}
+	if _, err := service.workflows.GetWorkflowDefinitionById(
+		ctx,
+		workflowDefinitionID,
+	); err != nil {
+		return fmt.Errorf("get workflow definition: %w", err)
+	}
+	definitions, dependencies, err := service.loadWorkflowDefinitionGraph(ctx, workflowDefinitionID)
+	if err != nil {
+		return err
+	}
+	if _, err := validateDependencyGraph(
+		workflowDefinitionID,
+		definitions,
+		dependencies,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CancelWorkflow stops further scheduling, cancels every non-terminal task,
 // and marks the workflow run cancelled. Workers still need their own
 // cooperative cancellation mechanism for work already executing.
@@ -109,26 +138,25 @@ func (service *Service) CancelWorkflow(
 
 	for _, taskRun := range taskRuns {
 		switch taskRun.Status {
-		case task.COMPLETED, task.CANCELLED, task.DEAD_LETTERED:
+		case task.TASK_RUN_COMPLETED, task.TASK_RUN_CANCELLED, task.TASK_RUN_DEAD_LETTERED:
 			continue
-		case task.QUEUED, task.RUNNING, task.RETRYING:
+		case task.TASK_RUN_QUEUED, task.TASK_RUN_RUNNING:
 			attempt, err := service.currentAttempt(ctx, taskRun)
 			if err != nil {
 				return err
 			}
 			if _, err := service.tasks.UpdateTaskAttemptById(ctx, attempt.ID, map[string]any{
-				"status":       task.CANCELLED,
-				"completed_at": now,
-				"log":          reasonPointer,
+				"status":   task.TASK_ATTEMPT_CANCELLED,
+				"ended_at": now,
+				"log":      reasonPointer,
 			}); err != nil {
 				return fmt.Errorf("cancel task attempt: %w", err)
 			}
 		}
 
 		if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-			"status":       task.CANCELLED,
-			"error":        reasonPointer,
-			"completed_at": now,
+			"status":   task.TASK_RUN_CANCELLED,
+			"ended_at": now,
 		}); err != nil {
 			return fmt.Errorf("cancel task run: %w", err)
 		}
@@ -180,9 +208,8 @@ func (service *Service) HandleTaskEvent(ctx context.Context, event task.TaskEven
 	if event.Attempt > 0 && event.Attempt != currentAttempt {
 		previousFailureAlreadyApplied := event.EventType == task.TaskFailed &&
 			event.Attempt < currentAttempt &&
-			(taskRun.Status == task.QUEUED ||
-				taskRun.Status == task.RETRYING ||
-				taskRun.Status == task.DEAD_LETTERED)
+			(taskRun.Status == task.TASK_RUN_QUEUED ||
+				taskRun.Status == task.TASK_RUN_DEAD_LETTERED)
 		if !previousFailureAlreadyApplied {
 			return fmt.Errorf(
 				"%w: event attempt %d, current attempt %d",
@@ -208,9 +235,8 @@ func (service *Service) HandleTaskEvent(ctx context.Context, event task.TaskEven
 	if event.EventType == task.TaskFailed &&
 		event.Attempt > 0 &&
 		event.Attempt < currentAttempt &&
-		(taskRun.Status == task.QUEUED ||
-			taskRun.Status == task.RETRYING ||
-			taskRun.Status == task.DEAD_LETTERED) {
+		(taskRun.Status == task.TASK_RUN_QUEUED ||
+			taskRun.Status == task.TASK_RUN_DEAD_LETTERED) {
 		if _, err := service.tasks.CreateTaskEvent(ctx, event); err != nil {
 			return fmt.Errorf("record task event: %w", err)
 		}
@@ -246,10 +272,10 @@ func (service *Service) handleTaskDeadLettered(
 	taskRun task.TaskRun,
 	event task.TaskEvent,
 ) error {
-	if taskRun.Status == task.DEAD_LETTERED {
+	if taskRun.Status == task.TASK_RUN_DEAD_LETTERED {
 		return nil
 	}
-	if taskRun.Status != task.RUNNING && taskRun.Status != task.FAILED {
+	if taskRun.Status != task.TASK_RUN_RUNNING && taskRun.Status != task.TASK_RUN_FAILED {
 		return fmt.Errorf(
 			"%w: task %s cannot be dead-lettered from %v",
 			ErrInvalidStateTransition,
@@ -262,22 +288,31 @@ func (service *Service) handleTaskDeadLettered(
 	if now.IsZero() {
 		now = service.now().UTC()
 	}
-	if taskRun.Status == task.RUNNING {
-		if err := service.finishCurrentAttempt(ctx, taskRun, task.DEAD_LETTERED, now, event); err != nil {
+	if taskRun.Status == task.TASK_RUN_RUNNING {
+		if err := service.finishCurrentAttempt(
+			ctx,
+			taskRun,
+			task.TASK_ATTEMPT_DEAD_LETTERED,
+			now,
+			event,
+		); err != nil {
 			return err
 		}
 	}
 	if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-		"status":       task.DEAD_LETTERED,
-		"error":        event.Error,
-		"completed_at": now,
+		"status":   task.TASK_RUN_DEAD_LETTERED,
+		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("dead-letter task run: %w", err)
 	}
-	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, taskRun.WorkflowRunID, map[string]any{
-		"status":       workflow.FAILED,
-		"completed_at": now,
-	}); err != nil {
+	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(
+		ctx,
+		taskRun.WorkflowRunID,
+		map[string]any{
+			"status":       workflow.FAILED,
+			"completed_at": now,
+		},
+	); err != nil {
 		return fmt.Errorf("fail workflow run: %w", err)
 	}
 	return nil
@@ -292,6 +327,22 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 		return fmt.Errorf("%w: workflow is %v", ErrInvalidStateTransition, workflowRun.Status)
 	}
 
+	definitions, dependencies, err := service.loadWorkflowDefinitionGraph(
+		ctx,
+		workflowRun.WorkflowDefinitionID,
+	)
+	if err != nil {
+		return err
+	}
+	definitionsByID, err := validateDependencyGraph(
+		workflowRun.WorkflowDefinitionID,
+		definitions,
+		dependencies,
+	)
+	if err != nil {
+		return err
+	}
+
 	taskRuns, err := service.tasks.GetTaskRunsByWorkflowRunId(ctx, workflowRunID)
 	if err != nil {
 		return fmt.Errorf("list task runs: %w", err)
@@ -299,6 +350,14 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 
 	now := service.now().UTC()
 	if len(taskRuns) == 0 {
+		if len(definitionsByID) > 0 {
+			return fmt.Errorf(
+				"%w: workflow definition %s has tasks but workflow run %s has no task runs",
+				ErrInvalidWorkflowGraph,
+				workflowRun.WorkflowDefinitionID,
+				workflowRunID,
+			)
+		}
 		updates := map[string]any{
 			"status":       workflow.COMPLETED,
 			"completed_at": now,
@@ -313,41 +372,23 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 		return nil
 	}
 
-	dependencies, err := service.tasks.GetTaskDependenciesByWorkflowDefinitionId(
-		ctx,
-		workflowRun.WorkflowDefinitionID,
+	byDefinition, err := validateWorkflowRunMaterialization(
+		workflowRunID,
+		taskRuns,
+		definitionsByID,
 	)
 	if err != nil {
-		return fmt.Errorf("list task dependencies: %w", err)
-	}
-
-	byDefinition := make(map[uuid.UUID]task.TaskRun, len(taskRuns))
-	for _, taskRun := range taskRuns {
-		if taskRun.WorkflowRunID != workflowRunID {
-			return fmt.Errorf("task run %s belongs to another workflow run", taskRun.ID)
-		}
-		if taskRun.TaskDefinitionID == uuid.Nil {
-			return fmt.Errorf("%w: task run %s has no task definition", ErrInvalidWorkflowGraph, taskRun.ID)
-		}
-		if existing, exists := byDefinition[taskRun.TaskDefinitionID]; exists {
-			return fmt.Errorf(
-				"%w: task runs %s and %s share definition %s",
-				ErrInvalidWorkflowGraph,
-				existing.ID,
-				taskRun.ID,
-				taskRun.TaskDefinitionID,
-			)
-		}
-		byDefinition[taskRun.TaskDefinitionID] = taskRun
-	}
-	if err := validateDependencyGraph(byDefinition, dependencies); err != nil {
 		return err
 	}
 	if workflowRun.Status == workflow.PENDING {
-		if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, workflowRunID, map[string]any{
-			"status":     workflow.RUNNING,
-			"started_at": now,
-		}); err != nil {
+		if _, err := service.workflows.UpdateWorkflowRunByIdInternal(
+			ctx,
+			workflowRunID,
+			map[string]any{
+				"status":     workflow.RUNNING,
+				"started_at": now,
+			},
+		); err != nil {
 			return fmt.Errorf("start workflow run: %w", err)
 		}
 	}
@@ -358,7 +399,7 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 	}
 
 	for _, taskRun := range taskRuns {
-		if taskRun.Status != task.PENDING && taskRun.Status != task.RETRYING {
+		if taskRun.Status != task.TASK_RUN_PENDING {
 			continue
 		}
 		if !dependenciesCompleted(required[taskRun.TaskDefinitionID], byDefinition) {
@@ -376,8 +417,13 @@ func (service *Service) queueTask(
 	taskRun task.TaskRun,
 	rollback task.TaskRun,
 ) error {
-	if taskRun.Status != task.PENDING && taskRun.Status != task.RETRYING {
-		return fmt.Errorf("%w: task %s cannot be queued from %v", ErrInvalidStateTransition, taskRun.ID, taskRun.Status)
+	if taskRun.Status != task.TASK_RUN_PENDING && taskRun.Status != task.TASK_RUN_FAILED {
+		return fmt.Errorf(
+			"%w: task %s cannot be queued from %v",
+			ErrInvalidStateTransition,
+			taskRun.ID,
+			taskRun.Status,
+		)
 	}
 
 	definition := taskRun.TaskDefinition
@@ -392,11 +438,11 @@ func (service *Service) queueTask(
 	now := service.now().UTC()
 	attemptNumber := taskRun.RetryCount + 1
 	if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-		"status":       task.QUEUED,
+		"status":       task.TASK_RUN_QUEUED,
 		"retry_count":  taskRun.RetryCount,
 		"scheduled_at": now,
 		"started_at":   nil,
-		"completed_at": nil,
+		"ended_at":     nil,
 	}); err != nil {
 		return fmt.Errorf("queue task run: %w", err)
 	}
@@ -404,7 +450,7 @@ func (service *Service) queueTask(
 	attempt, err := service.tasks.CreateTaskAttempt(ctx, task.TaskAttempt{
 		TaskRunID:     taskRun.ID,
 		AttemptNumber: attemptNumber,
-		Status:        task.QUEUED,
+		Status:        task.TASK_ATTEMPT_QUEUED,
 	})
 	if err != nil {
 		return errors.Join(
@@ -441,9 +487,8 @@ func (service *Service) restoreTaskRun(ctx context.Context, taskRun task.TaskRun
 		"retry_count":  taskRun.RetryCount,
 		"scheduled_at": taskRun.ScheduledAt,
 		"started_at":   taskRun.StartedAt,
-		"completed_at": taskRun.CompletedAt,
+		"ended_at":     taskRun.EndedAt,
 		"output":       taskRun.Output,
-		"error":        taskRun.Error,
 	})
 	return wrapIfError("restore task run after dispatch failure", err)
 }
@@ -453,11 +498,16 @@ func (service *Service) handleTaskStarted(
 	taskRun task.TaskRun,
 	event task.TaskEvent,
 ) error {
-	if taskRun.Status == task.RUNNING {
+	if taskRun.Status == task.TASK_RUN_RUNNING {
 		return nil
 	}
-	if taskRun.Status != task.QUEUED {
-		return fmt.Errorf("%w: task %s cannot start from %v", ErrInvalidStateTransition, taskRun.ID, taskRun.Status)
+	if taskRun.Status != task.TASK_RUN_QUEUED {
+		return fmt.Errorf(
+			"%w: task %s cannot start from %v",
+			ErrInvalidStateTransition,
+			taskRun.ID,
+			taskRun.Status,
+		)
 	}
 
 	now := event.CreatedAt
@@ -469,14 +519,14 @@ func (service *Service) handleTaskStarted(
 		return err
 	}
 	if _, err := service.tasks.UpdateTaskAttemptById(ctx, attempt.ID, map[string]any{
-		"status":     task.RUNNING,
+		"status":     task.TASK_ATTEMPT_RUNNING,
 		"worker_id":  event.WorkerID,
 		"started_at": now,
 	}); err != nil {
 		return fmt.Errorf("start task attempt: %w", err)
 	}
 	if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-		"status":     task.RUNNING,
+		"status":     task.TASK_RUN_RUNNING,
 		"started_at": now,
 	}); err != nil {
 		return fmt.Errorf("mark task running: %w", err)
@@ -489,23 +539,33 @@ func (service *Service) handleTaskCompleted(
 	taskRun task.TaskRun,
 	event task.TaskEvent,
 ) error {
-	if taskRun.Status != task.RUNNING && taskRun.Status != task.COMPLETED {
-		return fmt.Errorf("%w: task %s cannot complete from %v", ErrInvalidStateTransition, taskRun.ID, taskRun.Status)
+	if taskRun.Status != task.TASK_RUN_RUNNING && taskRun.Status != task.TASK_RUN_COMPLETED {
+		return fmt.Errorf(
+			"%w: task %s cannot complete from %v",
+			ErrInvalidStateTransition,
+			taskRun.ID,
+			taskRun.Status,
+		)
 	}
 
-	if taskRun.Status != task.COMPLETED {
+	if taskRun.Status != task.TASK_RUN_COMPLETED {
 		now := event.CreatedAt
 		if now.IsZero() {
 			now = service.now().UTC()
 		}
-		if err := service.finishCurrentAttempt(ctx, taskRun, task.COMPLETED, now, event); err != nil {
+		if err := service.finishCurrentAttempt(
+			ctx,
+			taskRun,
+			task.TASK_ATTEMPT_COMPLETED,
+			now,
+			event,
+		); err != nil {
 			return err
 		}
 		if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-			"status":       task.COMPLETED,
-			"output":       event.Result,
-			"error":        nil,
-			"completed_at": now,
+			"status":   task.TASK_RUN_COMPLETED,
+			"output":   event.Result,
+			"ended_at": now,
 		}); err != nil {
 			return fmt.Errorf("complete task run: %w", err)
 		}
@@ -519,11 +579,17 @@ func (service *Service) handleTaskFailed(
 	taskRun task.TaskRun,
 	event task.TaskEvent,
 ) error {
-	if taskRun.Status != task.RUNNING && taskRun.Status != task.FAILED &&
-		taskRun.Status != task.RETRYING && taskRun.Status != task.DEAD_LETTERED {
-		return fmt.Errorf("%w: task %s cannot fail from %v", ErrInvalidStateTransition, taskRun.ID, taskRun.Status)
+	if taskRun.Status != task.TASK_RUN_RUNNING &&
+		taskRun.Status != task.TASK_RUN_FAILED &&
+		taskRun.Status != task.TASK_RUN_DEAD_LETTERED {
+		return fmt.Errorf(
+			"%w: task %s cannot fail from %v",
+			ErrInvalidStateTransition,
+			taskRun.ID,
+			taskRun.Status,
+		)
 	}
-	if taskRun.Status == task.DEAD_LETTERED {
+	if taskRun.Status == task.TASK_RUN_DEAD_LETTERED {
 		return nil
 	}
 
@@ -531,42 +597,38 @@ func (service *Service) handleTaskFailed(
 	if now.IsZero() {
 		now = service.now().UTC()
 	}
-	if taskRun.Status == task.RUNNING {
-		if err := service.finishCurrentAttempt(ctx, taskRun, task.FAILED, now, event); err != nil {
+	if taskRun.Status == task.TASK_RUN_RUNNING {
+		if err := service.finishCurrentAttempt(
+			ctx,
+			taskRun,
+			task.TASK_ATTEMPT_FAILED,
+			now,
+			event,
+		); err != nil {
 			return err
 		}
 		if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-			"status":       task.FAILED,
-			"error":        event.Error,
-			"completed_at": now,
+			"status":   task.TASK_RUN_FAILED,
+			"ended_at": now,
 		}); err != nil {
 			return fmt.Errorf("fail task run: %w", err)
 		}
-		taskRun.Status = task.FAILED
-	}
-
-	if taskRun.Status == task.RETRYING {
-		if taskRun.RetryCount == 0 {
-			return fmt.Errorf("%w: retrying task %s has zero retry count", ErrInvalidStateTransition, taskRun.ID)
-		}
-		rollback := taskRun
-		rollback.Status = task.FAILED
-		rollback.RetryCount--
-		return service.queueTask(ctx, taskRun, rollback)
+		taskRun.Status = task.TASK_RUN_FAILED
+		taskRun.EndedAt = &now
 	}
 
 	if taskRun.RetryCount < taskRun.MaxRetries {
 		rollback := taskRun
 		retryCount := taskRun.RetryCount + 1
 		updated, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-			"status":      task.RETRYING,
+			"status":      task.TASK_RUN_FAILED,
 			"retry_count": retryCount,
 		})
 		if err != nil {
 			return fmt.Errorf("schedule task retry: %w", err)
 		}
 		updated.RetryCount = retryCount
-		updated.Status = task.RETRYING
+		updated.Status = task.TASK_RUN_FAILED
 		if updated.WorkflowRunID == uuid.Nil {
 			updated.WorkflowRunID = taskRun.WorkflowRunID
 		}
@@ -579,15 +641,19 @@ func (service *Service) handleTaskFailed(
 	}
 
 	if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-		"status":       task.DEAD_LETTERED,
-		"completed_at": now,
+		"status":   task.TASK_RUN_DEAD_LETTERED,
+		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("dead-letter task run: %w", err)
 	}
-	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, taskRun.WorkflowRunID, map[string]any{
-		"status":       workflow.FAILED,
-		"completed_at": now,
-	}); err != nil {
+	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(
+		ctx,
+		taskRun.WorkflowRunID,
+		map[string]any{
+			"status":       workflow.FAILED,
+			"completed_at": now,
+		},
+	); err != nil {
 		return fmt.Errorf("fail workflow run: %w", err)
 	}
 	return nil
@@ -598,34 +664,48 @@ func (service *Service) handleTaskCancelled(
 	taskRun task.TaskRun,
 	event task.TaskEvent,
 ) error {
-	if taskRun.Status != task.PENDING &&
-		taskRun.Status != task.QUEUED &&
-		taskRun.Status != task.RUNNING &&
-		taskRun.Status != task.CANCELLED {
-		return fmt.Errorf("%w: task %s cannot be cancelled from %v", ErrInvalidStateTransition, taskRun.ID, taskRun.Status)
+	if taskRun.Status != task.TASK_RUN_PENDING &&
+		taskRun.Status != task.TASK_RUN_QUEUED &&
+		taskRun.Status != task.TASK_RUN_RUNNING &&
+		taskRun.Status != task.TASK_RUN_CANCELLED {
+		return fmt.Errorf(
+			"%w: task %s cannot be cancelled from %v",
+			ErrInvalidStateTransition,
+			taskRun.ID,
+			taskRun.Status,
+		)
 	}
 	now := event.CreatedAt
 	if now.IsZero() {
 		now = service.now().UTC()
 	}
-	if taskRun.Status != task.CANCELLED {
-		if taskRun.Status == task.QUEUED || taskRun.Status == task.RUNNING {
-			if err := service.finishCurrentAttempt(ctx, taskRun, task.CANCELLED, now, event); err != nil {
+	if taskRun.Status != task.TASK_RUN_CANCELLED {
+		if taskRun.Status == task.TASK_RUN_QUEUED || taskRun.Status == task.TASK_RUN_RUNNING {
+			if err := service.finishCurrentAttempt(
+				ctx,
+				taskRun,
+				task.TASK_ATTEMPT_CANCELLED,
+				now,
+				event,
+			); err != nil {
 				return err
 			}
 		}
 		if _, err := service.tasks.UpdateTaskRunById(ctx, taskRun.ID, map[string]any{
-			"status":       task.CANCELLED,
-			"error":        event.Error,
-			"completed_at": now,
+			"status":   task.TASK_RUN_CANCELLED,
+			"ended_at": now,
 		}); err != nil {
 			return fmt.Errorf("cancel task run: %w", err)
 		}
 	}
-	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, taskRun.WorkflowRunID, map[string]any{
-		"status":       workflow.FAILED,
-		"completed_at": now,
-	}); err != nil {
+	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(
+		ctx,
+		taskRun.WorkflowRunID,
+		map[string]any{
+			"status":       workflow.FAILED,
+			"completed_at": now,
+		},
+	); err != nil {
 		return fmt.Errorf("fail workflow after task cancellation: %w", err)
 	}
 	return nil
@@ -638,14 +718,18 @@ func (service *Service) resolveWorkflow(ctx context.Context, workflowRunID uuid.
 	}
 	allCompleted := len(taskRuns) > 0
 	for _, taskRun := range taskRuns {
-		if taskRun.Status == task.DEAD_LETTERED {
-			_, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, workflowRunID, map[string]any{
-				"status":       workflow.FAILED,
-				"completed_at": service.now().UTC(),
-			})
+		if taskRun.Status == task.TASK_RUN_DEAD_LETTERED {
+			_, err := service.workflows.UpdateWorkflowRunByIdInternal(
+				ctx,
+				workflowRunID,
+				map[string]any{
+					"status":       workflow.FAILED,
+					"completed_at": service.now().UTC(),
+				},
+			)
 			return err
 		}
-		if taskRun.Status != task.COMPLETED {
+		if taskRun.Status != task.TASK_RUN_COMPLETED {
 			allCompleted = false
 		}
 	}
@@ -679,8 +763,8 @@ func (service *Service) currentAttempt(
 func (service *Service) finishCurrentAttempt(
 	ctx context.Context,
 	taskRun task.TaskRun,
-	status task.TaskRunStatus,
-	completedAt time.Time,
+	status task.TaskAttemptStatus,
+	endedAt time.Time,
 	event task.TaskEvent,
 ) error {
 	attempt, err := service.currentAttempt(ctx, taskRun)
@@ -688,8 +772,8 @@ func (service *Service) finishCurrentAttempt(
 		return err
 	}
 	updates := map[string]any{
-		"status":       status,
-		"completed_at": completedAt,
+		"status":   status,
+		"ended_at": endedAt,
 	}
 	if event.WorkerID != "" {
 		updates["worker_id"] = event.WorkerID
@@ -725,13 +809,34 @@ func (service *Service) lockWorkflowRun(workflowRunID uuid.UUID) func() {
 	}
 }
 
+func (service *Service) loadWorkflowDefinitionGraph(
+	ctx context.Context,
+	workflowDefinitionID uuid.UUID,
+) ([]task.TaskDefinition, []task.TaskDependency, error) {
+	definitions, err := service.tasks.GetTaskDefinitionsByWorkflowDefinition(
+		ctx,
+		workflowDefinitionID,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list task definitions: %w", err)
+	}
+	dependencies, err := service.tasks.GetTaskDependenciesByWorkflowDefinitionId(
+		ctx,
+		workflowDefinitionID,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list task dependencies: %w", err)
+	}
+	return definitions, dependencies, nil
+}
+
 func dependenciesCompleted(
 	dependencyIDs []uuid.UUID,
 	taskRuns map[uuid.UUID]task.TaskRun,
 ) bool {
 	for _, dependencyID := range dependencyIDs {
 		dependency, ok := taskRuns[dependencyID]
-		if !ok || dependency.Status != task.COMPLETED {
+		if !ok || dependency.Status != task.TASK_RUN_COMPLETED {
 			return false
 		}
 	}
@@ -739,30 +844,58 @@ func dependenciesCompleted(
 }
 
 func validateDependencyGraph(
-	taskRuns map[uuid.UUID]task.TaskRun,
+	workflowDefinitionID uuid.UUID,
+	definitions []task.TaskDefinition,
 	dependencies []task.TaskDependency,
-) error {
-	graph := make(map[uuid.UUID][]uuid.UUID, len(taskRuns))
-	for definitionID := range taskRuns {
-		graph[definitionID] = nil
-	}
-	for _, dependency := range dependencies {
-		if _, exists := taskRuns[dependency.TaskID]; !exists {
-			return fmt.Errorf(
-				"%w: dependent definition %s has no task run",
+) (map[uuid.UUID]task.TaskDefinition, error) {
+	definitionsByID := make(map[uuid.UUID]task.TaskDefinition, len(definitions))
+	graph := make(map[uuid.UUID][]uuid.UUID, len(definitions))
+	for _, definition := range definitions {
+		if definition.ID == uuid.Nil {
+			return nil, fmt.Errorf(
+				"%w: workflow definition %s has a task definition without an ID",
 				ErrInvalidWorkflowGraph,
-				dependency.TaskID,
+				workflowDefinitionID,
 			)
 		}
-		if _, exists := taskRuns[dependency.DependOnTaskID]; !exists {
-			return fmt.Errorf(
-				"%w: prerequisite definition %s has no task run",
+		if definition.WorkflowDefinitionID != workflowDefinitionID {
+			return nil, fmt.Errorf(
+				"%w: task definition %s belongs to workflow definition %s, not %s",
+				ErrInvalidWorkflowGraph,
+				definition.ID,
+				definition.WorkflowDefinitionID,
+				workflowDefinitionID,
+			)
+		}
+		if _, exists := definitionsByID[definition.ID]; exists {
+			return nil, fmt.Errorf(
+				"%w: duplicate task definition %s",
+				ErrInvalidWorkflowGraph,
+				definition.ID,
+			)
+		}
+		definitionsByID[definition.ID] = definition
+		graph[definition.ID] = nil
+	}
+	for _, dependency := range dependencies {
+		if _, exists := definitionsByID[dependency.TaskID]; !exists {
+			return nil, fmt.Errorf(
+				"%w: dependent task definition %s is not in workflow definition %s",
+				ErrInvalidWorkflowGraph,
+				dependency.TaskID,
+				workflowDefinitionID,
+			)
+		}
+		if _, exists := definitionsByID[dependency.DependOnTaskID]; !exists {
+			return nil, fmt.Errorf(
+				"%w: prerequisite task definition %s is not in workflow definition %s",
 				ErrInvalidWorkflowGraph,
 				dependency.DependOnTaskID,
+				workflowDefinitionID,
 			)
 		}
 		if dependency.TaskID == dependency.DependOnTaskID {
-			return fmt.Errorf(
+			return nil, fmt.Errorf(
 				"%w: task definition %s depends on itself",
 				ErrInvalidWorkflowGraph,
 				dependency.TaskID,
@@ -800,10 +933,59 @@ func validateDependencyGraph(
 	}
 	for definitionID := range graph {
 		if err := visit(definitionID); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return definitionsByID, nil
+}
+
+func validateWorkflowRunMaterialization(
+	workflowRunID uuid.UUID,
+	taskRuns []task.TaskRun,
+	definitionsByID map[uuid.UUID]task.TaskDefinition,
+) (map[uuid.UUID]task.TaskRun, error) {
+	byDefinition := make(map[uuid.UUID]task.TaskRun, len(taskRuns))
+	for _, taskRun := range taskRuns {
+		if taskRun.WorkflowRunID != workflowRunID {
+			return nil, fmt.Errorf("task run %s belongs to another workflow run", taskRun.ID)
+		}
+		if taskRun.TaskDefinitionID == uuid.Nil {
+			return nil, fmt.Errorf(
+				"%w: task run %s has no task definition",
+				ErrInvalidWorkflowGraph,
+				taskRun.ID,
+			)
+		}
+		if _, exists := definitionsByID[taskRun.TaskDefinitionID]; !exists {
+			return nil, fmt.Errorf(
+				"%w: task run %s references task definition %s outside this workflow definition",
+				ErrInvalidWorkflowGraph,
+				taskRun.ID,
+				taskRun.TaskDefinitionID,
+			)
+		}
+		if existing, exists := byDefinition[taskRun.TaskDefinitionID]; exists {
+			return nil, fmt.Errorf(
+				"%w: task runs %s and %s share definition %s",
+				ErrInvalidWorkflowGraph,
+				existing.ID,
+				taskRun.ID,
+				taskRun.TaskDefinitionID,
+			)
+		}
+		byDefinition[taskRun.TaskDefinitionID] = taskRun
+	}
+	for definitionID := range definitionsByID {
+		if _, exists := byDefinition[definitionID]; !exists {
+			return nil, fmt.Errorf(
+				"%w: workflow run %s has no task run for task definition %s",
+				ErrInvalidWorkflowGraph,
+				workflowRunID,
+				definitionID,
+			)
+		}
+	}
+	return byDefinition, nil
 }
 
 func isTerminalWorkflow(status workflow.WorkflowRunStatus) bool {
@@ -817,11 +999,11 @@ func eventEffectIsPersisted(
 ) bool {
 	switch eventType {
 	case task.TaskCompleted:
-		return taskStatus == task.COMPLETED && workflowStatus == workflow.COMPLETED
+		return taskStatus == task.TASK_RUN_COMPLETED && workflowStatus == workflow.COMPLETED
 	case task.TaskFailed, task.TaskDeadLettered:
-		return taskStatus == task.DEAD_LETTERED && workflowStatus == workflow.FAILED
+		return taskStatus == task.TASK_RUN_DEAD_LETTERED && workflowStatus == workflow.FAILED
 	case task.TaskCancelled:
-		return taskStatus == task.CANCELLED
+		return taskStatus == task.TASK_RUN_CANCELLED
 	default:
 		return false
 	}

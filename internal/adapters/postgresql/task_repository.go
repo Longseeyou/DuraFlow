@@ -408,6 +408,17 @@ func (pTRI *PostgresTaskRepositoryInternal) GetTaskDefinitionById(
 	return tD, result.Error
 }
 
+func (pTRI *PostgresTaskRepositoryInternal) GetTaskDefinitionsByWorkflowDefinition(
+	ctx context.Context,
+	wDId uuid.UUID,
+) ([]task.TaskDefinition, error) {
+	var definitions []task.TaskDefinition
+	result := pTRI.database.WithContext(ctx).
+		Where("workflow_definition_id = ?", wDId).
+		Find(&definitions)
+	return definitions, result.Error
+}
+
 func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependencyById(
 	ctx context.Context,
 	tDpId uuid.UUID,
