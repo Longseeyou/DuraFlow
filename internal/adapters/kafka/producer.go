@@ -3,25 +3,25 @@ package kafka
 import (
 	"context"
 	"log/slog"
-	"strings"
 
 	"github.com/IBM/sarama"
+	"github.com/Longseeyou/DuraFlow/internal/shared/message"
 )
 
-type producerKafka struct {
+type kafkaProducer struct {
 	id string
 	*KafkaConfig
 	producer *sarama.SyncProducer
 }
 
-func NewProducerKafka(id string, config *KafkaConfig) *producerKafka {
-	return &producerKafka{
+func NewKafkaProducer(id string, config *KafkaConfig) message.Producer {
+	return &kafkaProducer{
 		id:          id,
 		KafkaConfig: config,
 	}
 }
 
-func (p *producerKafka) Start(ctx context.Context) error {
+func (p *kafkaProducer) Start(ctx context.Context) error {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 	config.Producer.Return.Errors = true
@@ -37,33 +37,29 @@ func (p *producerKafka) Start(ctx context.Context) error {
 		config.Net.SASL.Password = p.SASLPass
 	}
 
-	// Parse the addresses
-	p.Addrs = strings.Split(p.AddrsStr, ",")
-
 	// Create the producer
-	slog.Info("Creating Kafka producer", "addresses", p.Addrs)
-	producer, err := sarama.NewSyncProducer(p.Addrs, config)
+	slog.Info("Kafka producer", "addresses", p.Addrress)
+	producer, err := sarama.NewSyncProducer(p.Addrress, config)
 	if err != nil {
 		return err
 	}
 
 	p.producer = &producer
-	slog.Info("Kafka producer created successfully", "addresses", p.Addrs)
 
 	return nil
 }
 
-func (p *producerKafka) Stop() error {
+func (p *kafkaProducer) Stop() error {
 	if p.producer != nil {
-		slog.Info("Stopping Kafka producer")
-		if err := (*p.producer).Close(); err != nil {
+		err := (*p.producer).Close()
+		if err != nil {
 			slog.Error("Failed to close Kafka producer", "error", err)
 		}
 	}
 	return nil
 }
 
-func (p *producerKafka) SendMessage(
+func (p *kafkaProducer) SendMessage(
 	ctx context.Context,
 	topic string,
 	key string,

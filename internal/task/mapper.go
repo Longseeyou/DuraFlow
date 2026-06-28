@@ -1,7 +1,6 @@
 package task
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -10,6 +9,7 @@ func taskDefinitionRequestDtoToModel(tDDto TaskDefinitionRequestDto) TaskDefinit
 	tD.Name = *tDDto.Name
 	tD.Description = *tDDto.Description
 	tD.TaskType = *tDDto.TaskType
+	tD.Timeout = *tDDto.Timeout
 	return tD
 }
 
@@ -18,6 +18,8 @@ func taskDefinitionModelToResponseDto(tD TaskDefinition) TaskDefinitionResponseD
 	tDDto.BaseModelToResponseDto(tD)
 	tDDto.Name = tD.Name
 	tDDto.Description = tD.Description
+	tDDto.TaskType = tD.TaskType
+	tDDto.Timeout = tD.Timeout
 	return tDDto
 }
 
@@ -39,7 +41,7 @@ func taskDependencyModelToResponseDto(tD TaskDependency) TaskDependencyResponseD
 func taskRunRequestDtoToModel(tRDto TaskRunRequestDto) TaskRun {
 	var tR TaskRun
 	tR.MaxRetries = *tRDto.MaxRetries
-	tR.Input = *&tRDto.Input
+	tR.Input = tRDto.Input
 	return tR
 }
 
@@ -53,7 +55,6 @@ func taskRunModelToResponseDto(tR TaskRun) TaskRunResponseDto {
 	tRDto.MaxRetries = tR.MaxRetries
 	tRDto.Input = tR.Input
 	tRDto.Output = tR.Output
-	fmt.Println("missing ScheduledAt, StartedAt, CompletedAt")
 	return tRDto
 }
 
@@ -75,17 +76,17 @@ func taskRunInternalDtoToMap(tRDto TaskRunInternalDto) (map[string]any, error) {
 	switch *tRDto.Status {
 	case TASK_RUN_QUEUED:
 		if tRDto.ScheduledAt == nil {
-			return nil, errors.New("Missing ScheduledAt for status QUEUED")
+			return nil, fmt.Errorf("Missing ScheduledAt for status %s", *tRDto.Status)
 		}
 		tR["ScheduledAt"] = *tRDto.ScheduledAt
 	case TASK_RUN_RUNNING:
 		if tRDto.StartedAt == nil {
-			return nil, errors.New("Missing StartedAt for status RUNNING")
+			return nil, fmt.Errorf("Missing StartedAt for status %s", *tRDto.Status)
 		}
 		tR["StartedAt"] = *tRDto.StartedAt
-	case TASK_RUN_COMPLETED:
+	case TASK_RUN_COMPLETED, TASK_RUN_FAILED:
 		if tRDto.EndedAt == nil {
-			return nil, errors.New("Missing EndedAt for status COMPLETED")
+			return nil, fmt.Errorf("Missing EndedAt for status %s", *tRDto.Status)
 		}
 		tR["EndedAt"] = *tRDto.EndedAt
 	}

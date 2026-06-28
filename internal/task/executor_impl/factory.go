@@ -11,6 +11,6 @@ func NewTaskExecutor(taskType task.TaskType) (task.TaskExecutor, error) {
 	case task.MOCK_TASK:
 		return MockExecutor{}, nil
 	default:
-		return nil, fmt.Errorf("NewTaskExecutor: Invalid taskType")
+		return nil, fmt.Errorf("Invalid taskType: %s", taskType)
 	}
 }

@@ -8,21 +8,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type TaskType int
+type TaskType string
 
 const (
-	MOCK_TASK TaskType = iota
+	MOCK_TASK TaskType = "MOCK_TASK"
 )
 
 type TaskRunStatus string
 
 const (
-	TASK_RUN_PENDING       TaskRunStatus = "TASK_RUN_PENDING"
-	TASK_RUN_QUEUED        TaskRunStatus = "TASK_RUN_QUEUED"
-	TASK_RUN_RUNNING       TaskRunStatus = "TASK_RUN_RUNNING"
-	TASK_RUN_COMPLETED     TaskRunStatus = "TASK_RUN_COMPLETED"
-	TASK_RUN_FAILED        TaskRunStatus = "TASK_RUN_FAILED"
-	TASK_RUN_CANCELLED     TaskRunStatus = "TASK_RUN_CANCELLED"
+	TASK_RUN_PENDING   TaskRunStatus = "TASK_RUN_PENDING"
+	TASK_RUN_QUEUED    TaskRunStatus = "TASK_RUN_QUEUED"
+	TASK_RUN_RUNNING   TaskRunStatus = "TASK_RUN_RUNNING"
+	TASK_RUN_COMPLETED TaskRunStatus = "TASK_RUN_COMPLETED"
+	TASK_RUN_FAILED    TaskRunStatus = "TASK_RUN_FAILED"
+	// TASK_RUN_CANCELLED     TaskRunStatus = "TASK_RUN_CANCELLED"
 	TASK_RUN_DEAD_LETTERED TaskRunStatus = "TASK_RUN_DEAD_LETTERED"
 )
 
@@ -44,6 +44,7 @@ type TaskDefinition struct {
 	Name                 string
 	Description          string
 	TaskType             TaskType
+	Timeout              time.Duration
 }
 
 type TaskDependency struct {
@@ -79,5 +80,6 @@ type TaskAttempt struct {
 	Status        TaskAttemptStatus
 	StartedAt     *time.Time
 	EndedAt       *time.Time
+	TimeoutAt     *time.Time
 	Log           *string
 }

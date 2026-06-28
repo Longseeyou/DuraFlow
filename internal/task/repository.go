@@ -153,6 +153,7 @@ type TaskAttemptStoreInternal interface {
 		tAId uuid.UUID,
 		newTA map[string]any,
 	) (TaskAttempt, error)
+	TaskAttemptRunningIdempotency(ctx context.Context, tAId uuid.UUID) (bool, error)
 }
 
 type TaskEventStoreInternal interface {

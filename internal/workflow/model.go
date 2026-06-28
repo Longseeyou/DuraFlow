@@ -8,22 +8,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type WorkflowDefinitionStatus int
+type WorkflowDefinitionStatus string
 
 const (
-	DRAFTED WorkflowDefinitionStatus = iota
-	ACTIVATE
-	ARCHIVED
+	DRAFTED  WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_DRAFTED"
+	ACTIVATE WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ACTIVATE"
+	ARCHIVED WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ARCHIVED"
 )
 
-type WorkflowRunStatus int
+type WorkflowRunStatus string
 
 const (
-	PENDING WorkflowRunStatus = iota
-	RUNNING
-	COMPLETED
-	FAILED
-	CANCELLED
+	PENDING   WorkflowRunStatus = "WORKFLOW_RUN_PENDING"
+	RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
+	COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
+	FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
+	CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
 )
 
 type Workflow struct {
@@ -38,7 +38,7 @@ type WorkflowDefinition struct {
 	model.BaseModel
 	WorkflowID uuid.UUID
 	Workflow   Workflow `json:"-"`
-	Version    uint
+	Version    uint     `gorm:"uniqueIndex:idx_workflow_definition;autoIncrement"`
 	Status     WorkflowDefinitionStatus
 }
 
@@ -48,6 +48,6 @@ type WorkflowRun struct {
 	WorkflowDefinition   WorkflowDefinition `json:"-"`
 	Status               WorkflowRunStatus
 	StartedAt            *time.Time
-	CompletedAt          *time.Time
+	EndedAt              *time.Time
 	CancelledAt          *time.Time
 }
