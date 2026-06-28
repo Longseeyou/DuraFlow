@@ -668,8 +668,8 @@ func (store *memoryStore) UpdateWorkflowRunByIdInternal(
 	if startedAt, ok := updates["started_at"].(time.Time); ok {
 		run.StartedAt = &startedAt
 	}
-	if completedAt, ok := updates["completed_at"].(time.Time); ok {
-		run.CompletedAt = &completedAt
+	if endedAt, ok := updates["ended_at"].(time.Time); ok {
+		run.EndedAt = &endedAt
 	}
 	if cancelledAt, ok := updates["cancelled_at"].(time.Time); ok {
 		run.CancelledAt = &cancelledAt
@@ -822,6 +822,18 @@ func (store *memoryStore) UpdateTaskAttemptById(
 		return attempt, nil
 	}
 	return task.TaskAttempt{}, errors.New("task attempt not found")
+}
+
+func (store *memoryStore) TaskAttemptRunningIdempotency(
+	_ context.Context,
+	id uuid.UUID,
+) (bool, error) {
+	for _, attempt := range store.attempts {
+		if attempt.ID == id {
+			return attempt.Status == task.TASK_ATTEMPT_RUNNING, nil
+		}
+	}
+	return false, errors.New("task attempt not found")
 }
 
 func (store *memoryStore) GetTaskDependenciesByWorkflowDefinitionId(
