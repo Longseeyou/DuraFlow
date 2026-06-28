@@ -408,6 +408,17 @@ func (tRIP TaskRepositoryInternalPostgres) GetTaskDefinitionById(
 	return tD, result.Error
 }
 
+func (tRIP TaskRepositoryInternalPostgres) GetTaskDefinitionsByWorkflowDefinitionId(
+	ctx context.Context,
+	wDId uuid.UUID,
+) ([]task.TaskDefinition, error) {
+	var definitions []task.TaskDefinition
+	result := tRIP.database.WithContext(ctx).
+		Where("workflow_definition_id = ?", wDId).
+		Find(&definitions)
+	return definitions, result.Error
+}
+
 func (tRIP TaskRepositoryInternalPostgres) GetTaskDependencyById(
 	ctx context.Context,
 	tDpId uuid.UUID,

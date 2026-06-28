@@ -22,8 +22,8 @@ func TestScheduleWorkflowQueuesOnlyRunnableTasks(t *testing.T) {
 	fixture.store.definitions[rootDefinition.ID] = rootDefinition
 	fixture.store.definitions[childDefinition.ID] = childDefinition
 
-	root := fixture.addTaskRun(rootDefinition, task.PENDING, 0, 2)
-	child := fixture.addTaskRun(childDefinition, task.PENDING, 0, 2)
+	root := fixture.addTaskRun(rootDefinition, task.TASK_RUN_PENDING, 0, 2)
+	child := fixture.addTaskRun(childDefinition, task.TASK_RUN_PENDING, 0, 2)
 	fixture.store.dependencies = []task.TaskDependency{{
 		TaskID:         childDefinition.ID,
 		DependOnTaskID: rootDefinition.ID,
@@ -36,10 +36,10 @@ func TestScheduleWorkflowQueuesOnlyRunnableTasks(t *testing.T) {
 	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.RUNNING {
 		t.Fatalf("workflow status = %v, want RUNNING", got)
 	}
-	if got := fixture.store.taskRuns[root.ID].Status; got != task.QUEUED {
+	if got := fixture.store.taskRuns[root.ID].Status; got != task.TASK_RUN_QUEUED {
 		t.Fatalf("root status = %v, want QUEUED", got)
 	}
-	if got := fixture.store.taskRuns[child.ID].Status; got != task.PENDING {
+	if got := fixture.store.taskRuns[child.ID].Status; got != task.TASK_RUN_PENDING {
 		t.Fatalf("child status = %v, want PENDING", got)
 	}
 	if len(fixture.publisher.commands) != 1 {
@@ -64,8 +64,8 @@ func TestCompletedTaskUnblocksDependencyAndCompletesWorkflow(t *testing.T) {
 	childDefinition.ID = uuid.New()
 	fixture.store.definitions[rootDefinition.ID] = rootDefinition
 	fixture.store.definitions[childDefinition.ID] = childDefinition
-	root := fixture.addTaskRun(rootDefinition, task.PENDING, 0, 1)
-	child := fixture.addTaskRun(childDefinition, task.PENDING, 0, 1)
+	root := fixture.addTaskRun(rootDefinition, task.TASK_RUN_PENDING, 0, 1)
+	child := fixture.addTaskRun(childDefinition, task.TASK_RUN_PENDING, 0, 1)
 	fixture.store.dependencies = []task.TaskDependency{{
 		TaskID:         childDefinition.ID,
 		DependOnTaskID: rootDefinition.ID,
@@ -82,7 +82,7 @@ func TestCompletedTaskUnblocksDependencyAndCompletesWorkflow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := fixture.store.taskRuns[child.ID].Status; got != task.QUEUED {
+	if got := fixture.store.taskRuns[child.ID].Status; got != task.TASK_RUN_QUEUED {
 		t.Fatalf("child status = %v, want QUEUED", got)
 	}
 	if len(fixture.publisher.commands) != 2 {
@@ -107,7 +107,7 @@ func TestFailedTaskRetriesThenDeadLettersWorkflow(t *testing.T) {
 	definition := task.TaskDefinition{Name: "flaky", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 1)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 1)
 
 	ctx := context.Background()
 	if err := fixture.service.ScheduleWorkflow(ctx, fixture.workflowRun.ID); err != nil {
@@ -121,7 +121,7 @@ func TestFailedTaskRetriesThenDeadLettersWorkflow(t *testing.T) {
 	}
 
 	retried := fixture.store.taskRuns[taskRun.ID]
-	if retried.Status != task.QUEUED || retried.RetryCount != 1 {
+	if retried.Status != task.TASK_RUN_QUEUED || retried.RetryCount != 1 {
 		t.Fatalf("retried task = %+v, want QUEUED with retry count 1", retried)
 	}
 	if len(fixture.publisher.commands) != 2 || fixture.publisher.commands[1].Attempt != 2 {
@@ -134,7 +134,7 @@ func TestFailedTaskRetriesThenDeadLettersWorkflow(t *testing.T) {
 	if err := fixture.failTask(ctx, taskRun.ID, "second failure"); err != nil {
 		t.Fatal(err)
 	}
-	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.DEAD_LETTERED {
+	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.TASK_RUN_DEAD_LETTERED {
 		t.Fatalf("task status = %v, want DEAD_LETTERED", got)
 	}
 	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.FAILED {
@@ -148,7 +148,7 @@ func TestHandleTaskEventIsIdempotentByEventID(t *testing.T) {
 	definition := task.TaskDefinition{Name: "once", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 1)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 1)
 
 	ctx := context.Background()
 	if err := fixture.service.ScheduleWorkflow(ctx, fixture.workflowRun.ID); err != nil {
@@ -181,7 +181,7 @@ func TestHandleTaskEventRejectsInvalidTransition(t *testing.T) {
 	definition := task.TaskDefinition{Name: "pending", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 0)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 0)
 	fixture.store.workflowRuns[fixture.workflowRun.ID] = workflow.WorkflowRun{
 		BaseModel:            fixture.workflowRun.BaseModel,
 		WorkflowDefinitionID: fixture.workflowRun.WorkflowDefinitionID,
@@ -207,7 +207,7 @@ func TestScheduleWorkflowRestoresPendingTaskWhenPublishFails(t *testing.T) {
 	definition := task.TaskDefinition{Name: "publish-me", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 1)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 1)
 	fixture.publisher.err = errors.New("kafka unavailable")
 
 	err := fixture.service.ScheduleWorkflow(context.Background(), fixture.workflowRun.ID)
@@ -215,7 +215,7 @@ func TestScheduleWorkflowRestoresPendingTaskWhenPublishFails(t *testing.T) {
 		t.Fatal("ScheduleWorkflow() error = nil, want publisher error")
 	}
 	restored := fixture.store.taskRuns[taskRun.ID]
-	if restored.Status != task.PENDING || restored.RetryCount != 0 {
+	if restored.Status != task.TASK_RUN_PENDING || restored.RetryCount != 0 {
 		t.Fatalf("task after publish failure = %+v, want original pending state", restored)
 	}
 	if len(fixture.store.attempts) != 0 {
@@ -226,7 +226,7 @@ func TestScheduleWorkflowRestoresPendingTaskWhenPublishFails(t *testing.T) {
 	if err := fixture.service.ScheduleWorkflow(context.Background(), fixture.workflowRun.ID); err != nil {
 		t.Fatalf("ScheduleWorkflow() retry error = %v", err)
 	}
-	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.QUEUED {
+	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.TASK_RUN_QUEUED {
 		t.Fatalf("task status after retry = %v, want QUEUED", got)
 	}
 }
@@ -237,7 +237,7 @@ func TestFailedEventResumesRetryWithoutDoubleIncrement(t *testing.T) {
 	definition := task.TaskDefinition{Name: "flaky-publisher", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 2)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 2)
 
 	ctx := context.Background()
 	if err := fixture.service.ScheduleWorkflow(ctx, fixture.workflowRun.ID); err != nil {
@@ -253,7 +253,7 @@ func TestFailedEventResumesRetryWithoutDoubleIncrement(t *testing.T) {
 		t.Fatal("HandleTaskEvent() error = nil, want publisher error")
 	}
 	restored := fixture.store.taskRuns[taskRun.ID]
-	if restored.Status != task.FAILED || restored.RetryCount != 0 {
+	if restored.Status != task.TASK_RUN_FAILED || restored.RetryCount != 0 {
 		t.Fatalf("task after retry publish failure = %+v, want FAILED with retry count 0", restored)
 	}
 
@@ -262,7 +262,7 @@ func TestFailedEventResumesRetryWithoutDoubleIncrement(t *testing.T) {
 		t.Fatalf("HandleTaskEvent() redelivery error = %v", err)
 	}
 	retried := fixture.store.taskRuns[taskRun.ID]
-	if retried.Status != task.QUEUED || retried.RetryCount != 1 {
+	if retried.Status != task.TASK_RUN_QUEUED || retried.RetryCount != 1 {
 		t.Fatalf("task after redelivery = %+v, want QUEUED with retry count 1", retried)
 	}
 	if len(fixture.store.events) != 2 {
@@ -277,7 +277,7 @@ func TestCompletedEventCanRecordAfterStateWasAlreadyCommitted(t *testing.T) {
 	definition := task.TaskDefinition{Name: "terminal", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 0)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 0)
 
 	ctx := context.Background()
 	if err := fixture.service.ScheduleWorkflow(ctx, fixture.workflowRun.ID); err != nil {
@@ -323,8 +323,8 @@ func TestCancelWorkflowCancelsActiveAndPendingTasks(t *testing.T) {
 	childDefinition.ID = uuid.New()
 	fixture.store.definitions[rootDefinition.ID] = rootDefinition
 	fixture.store.definitions[childDefinition.ID] = childDefinition
-	root := fixture.addTaskRun(rootDefinition, task.PENDING, 0, 0)
-	child := fixture.addTaskRun(childDefinition, task.PENDING, 0, 0)
+	root := fixture.addTaskRun(rootDefinition, task.TASK_RUN_PENDING, 0, 0)
+	child := fixture.addTaskRun(childDefinition, task.TASK_RUN_PENDING, 0, 0)
 	fixture.store.dependencies = []task.TaskDependency{{
 		TaskID:         childDefinition.ID,
 		DependOnTaskID: rootDefinition.ID,
@@ -344,14 +344,14 @@ func TestCancelWorkflowCancelsActiveAndPendingTasks(t *testing.T) {
 	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.CANCELLED {
 		t.Fatalf("workflow status = %v, want CANCELLED", got)
 	}
-	if got := fixture.store.taskRuns[root.ID].Status; got != task.CANCELLED {
+	if got := fixture.store.taskRuns[root.ID].Status; got != task.TASK_RUN_CANCELLED {
 		t.Fatalf("active task status = %v, want CANCELLED", got)
 	}
-	if got := fixture.store.taskRuns[child.ID].Status; got != task.CANCELLED {
+	if got := fixture.store.taskRuns[child.ID].Status; got != task.TASK_RUN_CANCELLED {
 		t.Fatalf("pending task status = %v, want CANCELLED", got)
 	}
 	attempt := fixture.store.attempts[attemptKey{root.ID, 1}]
-	if attempt.Status != task.CANCELLED {
+	if attempt.Status != task.TASK_ATTEMPT_CANCELLED {
 		t.Fatalf("active attempt status = %v, want CANCELLED", attempt.Status)
 	}
 }
@@ -362,7 +362,7 @@ func TestStaleAttemptEventIsRejected(t *testing.T) {
 	definition := task.TaskDefinition{Name: "retry", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.QUEUED, 1, 2)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_QUEUED, 1, 2)
 	fixture.store.workflowRuns[fixture.workflowRun.ID] = workflow.WorkflowRun{
 		BaseModel:            fixture.workflowRun.BaseModel,
 		WorkflowDefinitionID: fixture.workflowRun.WorkflowDefinitionID,
@@ -371,7 +371,7 @@ func TestStaleAttemptEventIsRejected(t *testing.T) {
 	attempt := task.TaskAttempt{
 		TaskRunID:     taskRun.ID,
 		AttemptNumber: 2,
-		Status:        task.QUEUED,
+		Status:        task.TASK_ATTEMPT_QUEUED,
 	}
 	attempt.ID = uuid.New()
 	fixture.store.attempts[attemptKey{taskRun.ID, 2}] = attempt
@@ -399,8 +399,8 @@ func TestScheduleWorkflowRejectsDependencyCycleBeforeStarting(t *testing.T) {
 	secondDefinition.ID = uuid.New()
 	fixture.store.definitions[firstDefinition.ID] = firstDefinition
 	fixture.store.definitions[secondDefinition.ID] = secondDefinition
-	fixture.addTaskRun(firstDefinition, task.PENDING, 0, 0)
-	fixture.addTaskRun(secondDefinition, task.PENDING, 0, 0)
+	fixture.addTaskRun(firstDefinition, task.TASK_RUN_PENDING, 0, 0)
+	fixture.addTaskRun(secondDefinition, task.TASK_RUN_PENDING, 0, 0)
 	fixture.store.dependencies = []task.TaskDependency{
 		{TaskID: firstDefinition.ID, DependOnTaskID: secondDefinition.ID},
 		{TaskID: secondDefinition.ID, DependOnTaskID: firstDefinition.ID},
@@ -418,13 +418,38 @@ func TestScheduleWorkflowRejectsDependencyCycleBeforeStarting(t *testing.T) {
 	}
 }
 
+func TestScheduleWorkflowRejectsInvalidDefinitionBeforeListingTaskRuns(t *testing.T) {
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	fixture := newFixture(now)
+	firstDefinition := fixture.addTaskDefinition("first")
+	secondDefinition := fixture.addTaskDefinition("second")
+	fixture.store.dependencies = []task.TaskDependency{
+		{TaskID: firstDefinition.ID, DependOnTaskID: secondDefinition.ID},
+		{TaskID: secondDefinition.ID, DependOnTaskID: firstDefinition.ID},
+	}
+
+	err := fixture.service.ScheduleWorkflow(context.Background(), fixture.workflowRun.ID)
+	if !errors.Is(err, ErrInvalidWorkflowGraph) {
+		t.Fatalf("ScheduleWorkflow() error = %v, want ErrInvalidWorkflowGraph", err)
+	}
+	if fixture.store.listTaskRunsCalls != 0 {
+		t.Fatalf("task runs listed = %d, want 0", fixture.store.listTaskRunsCalls)
+	}
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.PENDING {
+		t.Fatalf("workflow status = %v, want PENDING", got)
+	}
+	if len(fixture.publisher.commands) != 0 {
+		t.Fatalf("published commands = %d, want 0", len(fixture.publisher.commands))
+	}
+}
+
 func TestCompletedEventRecoversWhenTaskUpdateFailsAfterAttemptUpdate(t *testing.T) {
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	fixture := newFixture(now)
 	definition := task.TaskDefinition{Name: "recoverable", TaskType: task.MOCK_TASK}
 	definition.ID = uuid.New()
 	fixture.store.definitions[definition.ID] = definition
-	taskRun := fixture.addTaskRun(definition, task.PENDING, 0, 0)
+	taskRun := fixture.addTaskRun(definition, task.TASK_RUN_PENDING, 0, 0)
 
 	ctx := context.Background()
 	if err := fixture.service.ScheduleWorkflow(ctx, fixture.workflowRun.ID); err != nil {
@@ -444,15 +469,15 @@ func TestCompletedEventRecoversWhenTaskUpdateFailsAfterAttemptUpdate(t *testing.
 	}
 	event.ID = uuid.New()
 	event.CreatedAt = now.Add(time.Minute)
-	fixture.store.failTaskUpdateStatus = map[task.TaskRunStatus]int{task.COMPLETED: 1}
+	fixture.store.failTaskUpdateStatus = map[task.TaskRunStatus]int{task.TASK_RUN_COMPLETED: 1}
 
 	if err := fixture.service.HandleTaskEvent(ctx, event); err == nil {
 		t.Fatal("HandleTaskEvent() error = nil, want injected task update error")
 	}
-	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.RUNNING {
+	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.TASK_RUN_RUNNING {
 		t.Fatalf("task status after failed update = %v, want RUNNING", got)
 	}
-	if got := fixture.store.attempts[attemptKey{taskRun.ID, 1}].Status; got != task.COMPLETED {
+	if got := fixture.store.attempts[attemptKey{taskRun.ID, 1}].Status; got != task.TASK_ATTEMPT_COMPLETED {
 		t.Fatalf("attempt status after failed task update = %v, want COMPLETED", got)
 	}
 
@@ -465,38 +490,55 @@ func TestCompletedEventRecoversWhenTaskUpdateFailsAfterAttemptUpdate(t *testing.
 }
 
 type fixture struct {
-	workflowRun workflow.WorkflowRun
-	store       *memoryStore
-	publisher   *recordingPublisher
-	service     *Service
-	now         time.Time
+	workflowDefinition workflow.WorkflowDefinition
+	workflowRun        workflow.WorkflowRun
+	store              *memoryStore
+	publisher          *recordingPublisher
+	service            *Service
+	now                time.Time
 }
 
 func newFixture(now time.Time) *fixture {
+	workflowDefinition := workflow.WorkflowDefinition{Status: workflow.ACTIVATE}
+	workflowDefinition.ID = uuid.New()
 	workflowRun := workflow.WorkflowRun{
-		WorkflowDefinitionID: uuid.New(),
+		WorkflowDefinitionID: workflowDefinition.ID,
 		Status:               workflow.PENDING,
 	}
 	workflowRun.ID = uuid.New()
 	store := &memoryStore{
-		workflowRuns: make(map[uuid.UUID]workflow.WorkflowRun),
-		definitions:  make(map[uuid.UUID]task.TaskDefinition),
-		taskRuns:     make(map[uuid.UUID]task.TaskRun),
-		attempts:     make(map[attemptKey]task.TaskAttempt),
-		events:       make(map[uuid.UUID]task.TaskEvent),
+		workflowDefinitions: make(map[uuid.UUID]workflow.WorkflowDefinition),
+		workflowRuns:        make(map[uuid.UUID]workflow.WorkflowRun),
+		definitions:         make(map[uuid.UUID]task.TaskDefinition),
+		taskRuns:            make(map[uuid.UUID]task.TaskRun),
+		attempts:            make(map[attemptKey]task.TaskAttempt),
+		events:              make(map[uuid.UUID]task.TaskEvent),
 	}
+	store.workflowDefinitions[workflowDefinition.ID] = workflowDefinition
 	store.workflowRuns[workflowRun.ID] = workflowRun
 	publisher := &recordingPublisher{}
 	service := NewService(store, store, publisher, WithClock(func() time.Time {
 		return now
 	}))
 	return &fixture{
-		workflowRun: workflowRun,
-		store:       store,
-		publisher:   publisher,
-		service:     service,
-		now:         now,
+		workflowDefinition: workflowDefinition,
+		workflowRun:        workflowRun,
+		store:              store,
+		publisher:          publisher,
+		service:            service,
+		now:                now,
 	}
+}
+
+func (fixture *fixture) addTaskDefinition(name string) task.TaskDefinition {
+	definition := task.TaskDefinition{
+		WorkflowDefinitionID: fixture.workflowRun.WorkflowDefinitionID,
+		Name:                 name,
+		TaskType:             task.MOCK_TASK,
+	}
+	definition.ID = uuid.New()
+	fixture.store.definitions[definition.ID] = definition
+	return definition
 }
 
 func (fixture *fixture) addTaskRun(
@@ -505,6 +547,10 @@ func (fixture *fixture) addTaskRun(
 	retryCount uint,
 	maxRetries uint,
 ) task.TaskRun {
+	if definition.WorkflowDefinitionID == uuid.Nil {
+		definition.WorkflowDefinitionID = fixture.workflowRun.WorkflowDefinitionID
+	}
+	fixture.store.definitions[definition.ID] = definition
 	taskRun := task.TaskRun{
 		WorkflowRunID:    fixture.workflowRun.ID,
 		TaskDefinitionID: definition.ID,
@@ -572,6 +618,7 @@ type attemptKey struct {
 }
 
 type memoryStore struct {
+	workflowDefinitions  workflowDefinitionMap
 	workflowRuns         workflowRunMap
 	definitions          map[uuid.UUID]task.TaskDefinition
 	taskRuns             taskRunMap
@@ -580,10 +627,23 @@ type memoryStore struct {
 	events               map[uuid.UUID]task.TaskEvent
 	createEventErr       error
 	failTaskUpdateStatus map[task.TaskRunStatus]int
+	listTaskRunsCalls    int
 }
 
+type workflowDefinitionMap map[uuid.UUID]workflow.WorkflowDefinition
 type workflowRunMap map[uuid.UUID]workflow.WorkflowRun
 type taskRunMap map[uuid.UUID]task.TaskRun
+
+func (store *memoryStore) GetWorkflowDefinitionById(
+	_ context.Context,
+	id uuid.UUID,
+) (workflow.WorkflowDefinition, error) {
+	definition, ok := store.workflowDefinitions[id]
+	if !ok {
+		return workflow.WorkflowDefinition{}, errors.New("workflow definition not found")
+	}
+	return definition, nil
+}
 
 func (store *memoryStore) GetWorkflowRunById(
 	_ context.Context,
@@ -629,6 +689,19 @@ func (store *memoryStore) GetTaskDefinitionById(
 	return definition, nil
 }
 
+func (store *memoryStore) GetTaskDefinitionsByWorkflowDefinitionId(
+	_ context.Context,
+	workflowDefinitionID uuid.UUID,
+) ([]task.TaskDefinition, error) {
+	var definitions []task.TaskDefinition
+	for _, definition := range store.definitions {
+		if definition.WorkflowDefinitionID == workflowDefinitionID {
+			definitions = append(definitions, definition)
+		}
+	}
+	return definitions, nil
+}
+
 func (store *memoryStore) GetTaskRunById(
 	_ context.Context,
 	id uuid.UUID,
@@ -644,6 +717,7 @@ func (store *memoryStore) GetTaskRunsByWorkflowRunId(
 	_ context.Context,
 	workflowRunID uuid.UUID,
 ) ([]task.TaskRun, error) {
+	store.listTaskRunsCalls++
 	var taskRuns []task.TaskRun
 	for _, taskRun := range store.taskRuns {
 		if taskRun.WorkflowRunID == workflowRunID {
@@ -675,14 +749,11 @@ func (store *memoryStore) UpdateTaskRunById(
 	if value, exists := updates["started_at"]; exists {
 		taskRun.StartedAt = timePointer(value)
 	}
-	if value, exists := updates["completed_at"]; exists {
-		taskRun.CompletedAt = timePointer(value)
+	if value, exists := updates["ended_at"]; exists {
+		taskRun.EndedAt = timePointer(value)
 	}
 	if value, exists := updates["output"]; exists {
 		taskRun.Output, _ = value.(*string)
-	}
-	if value, exists := updates["error"]; exists {
-		taskRun.Error, _ = value.(*string)
 	}
 	store.taskRuns[id] = taskRun
 	return taskRun, nil
@@ -735,7 +806,7 @@ func (store *memoryStore) UpdateTaskAttemptById(
 		if attempt.ID != id {
 			continue
 		}
-		if status, ok := updates["status"].(task.TaskRunStatus); ok {
+		if status, ok := updates["status"].(task.TaskAttemptStatus); ok {
 			attempt.Status = status
 		}
 		if workerID, ok := updates["worker_id"].(string); ok {
@@ -744,8 +815,8 @@ func (store *memoryStore) UpdateTaskAttemptById(
 		if startedAt, ok := updates["started_at"].(time.Time); ok {
 			attempt.StartedAt = &startedAt
 		}
-		if completedAt, ok := updates["completed_at"].(time.Time); ok {
-			attempt.CompletedAt = &completedAt
+		if endedAt, ok := updates["ended_at"].(time.Time); ok {
+			attempt.EndedAt = &endedAt
 		}
 		store.attempts[key] = attempt
 		return attempt, nil

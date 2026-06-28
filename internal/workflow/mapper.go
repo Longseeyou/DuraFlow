@@ -40,8 +40,14 @@ func workflowRunModelToResponseDto(wR WorkflowRun) WorkflowRunResponseDto {
 	wRDto := WorkflowRunResponseDto{}
 	wRDto.BaseModelToResponseDto(wR)
 	wRDto.Status = wR.Status
-	wRDto.StartedAt = *wR.StartedAt
-	wRDto.CompletedAt = *wR.CompletedAt
-	wRDto.CancelledAt = *wR.CancelledAt
+	if wR.StartedAt != nil {
+		wRDto.StartedAt = *wR.StartedAt
+	}
+	if wR.CompletedAt != nil {
+		wRDto.CompletedAt = *wR.CompletedAt
+	}
+	if wR.CancelledAt != nil {
+		wRDto.CancelledAt = *wR.CancelledAt
+	}
 	return wRDto
 }

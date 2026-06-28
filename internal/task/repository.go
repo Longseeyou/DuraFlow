@@ -116,6 +116,10 @@ type TaskRepositoryInternal interface {
 
 type TaskDefinitionStoreInternal interface {
 	GetTaskDefinitionById(ctx context.Context, tDId uuid.UUID) (TaskDefinition, error)
+	GetTaskDefinitionsByWorkflowDefinitionId(
+		ctx context.Context,
+		wDId uuid.UUID,
+	) ([]TaskDefinition, error)
 }
 
 type TaskDependencyStoreInternal interface {

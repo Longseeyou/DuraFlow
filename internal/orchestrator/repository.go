@@ -10,6 +10,7 @@ import (
 // WorkflowRepository persists workflow-run state required by the
 // orchestrator by reusing the workflow package's internal store contract.
 type WorkflowRepository interface {
+	workflow.WorkflowDefinitionStoreInternal
 	workflow.WorkflowRunStoreInternal
 }
 
