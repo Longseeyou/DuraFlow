@@ -293,8 +293,8 @@ func (service *Service) handleTaskDeadLettered(
 		return fmt.Errorf("dead-letter task run: %w", err)
 	}
 	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, taskRun.WorkflowRunID, map[string]any{
-		"status":       workflow.FAILED,
-		"completed_at": now,
+		"status":   workflow.FAILED,
+		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("fail workflow run: %w", err)
 	}
@@ -342,8 +342,8 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 			)
 		}
 		updates := map[string]any{
-			"status":       workflow.COMPLETED,
-			"completed_at": now,
+			"status":   workflow.COMPLETED,
+			"ended_at": now,
 		}
 		if workflowRun.Status == workflow.PENDING {
 			updates["started_at"] = now
@@ -594,8 +594,8 @@ func (service *Service) handleTaskFailed(
 		return fmt.Errorf("dead-letter task run: %w", err)
 	}
 	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, taskRun.WorkflowRunID, map[string]any{
-		"status":       workflow.FAILED,
-		"completed_at": now,
+		"status":   workflow.FAILED,
+		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("fail workflow run: %w", err)
 	}
@@ -631,8 +631,8 @@ func (service *Service) handleTaskCancelled(
 		}
 	}
 	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, taskRun.WorkflowRunID, map[string]any{
-		"status":       workflow.FAILED,
-		"completed_at": now,
+		"status":   workflow.FAILED,
+		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("fail workflow after task cancellation: %w", err)
 	}
@@ -648,8 +648,8 @@ func (service *Service) resolveWorkflow(ctx context.Context, workflowRunID uuid.
 	for _, taskRun := range taskRuns {
 		if taskRun.Status == task.TASK_RUN_DEAD_LETTERED {
 			_, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, workflowRunID, map[string]any{
-				"status":       workflow.FAILED,
-				"completed_at": service.now().UTC(),
+				"status":   workflow.FAILED,
+				"ended_at": service.now().UTC(),
 			})
 			return err
 		}
@@ -661,8 +661,8 @@ func (service *Service) resolveWorkflow(ctx context.Context, workflowRunID uuid.
 		return nil
 	}
 	if _, err := service.workflows.UpdateWorkflowRunByIdInternal(ctx, workflowRunID, map[string]any{
-		"status":       workflow.COMPLETED,
-		"completed_at": service.now().UTC(),
+		"status":   workflow.COMPLETED,
+		"ended_at": service.now().UTC(),
 	}); err != nil {
 		return fmt.Errorf("complete workflow run: %w", err)
 	}

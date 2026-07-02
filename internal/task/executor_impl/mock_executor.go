@@ -12,8 +12,7 @@ import (
 	"github.com/Longseeyou/DuraFlow/internal/task"
 )
 
-type MockExecutor struct {
-}
+type MockExecutor struct{}
 
 func (e MockExecutor) Execute(
 	ctx context.Context,

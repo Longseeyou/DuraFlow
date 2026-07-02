@@ -29,7 +29,10 @@ func TestScheduleWorkflowQueuesOnlyRunnableTasks(t *testing.T) {
 		DependOnTaskID: rootDefinition.ID,
 	}}
 
-	if err := fixture.service.ScheduleWorkflow(context.Background(), fixture.workflowRun.ID); err != nil {
+	if err := fixture.service.ScheduleWorkflow(
+		context.Background(),
+		fixture.workflowRun.ID,
+	); err != nil {
 		t.Fatalf("ScheduleWorkflow() error = %v", err)
 	}
 
@@ -223,7 +226,10 @@ func TestScheduleWorkflowRestoresPendingTaskWhenPublishFails(t *testing.T) {
 	}
 
 	fixture.publisher.err = nil
-	if err := fixture.service.ScheduleWorkflow(context.Background(), fixture.workflowRun.ID); err != nil {
+	if err := fixture.service.ScheduleWorkflow(
+		context.Background(),
+		fixture.workflowRun.ID,
+	); err != nil {
 		t.Fatalf("ScheduleWorkflow() retry error = %v", err)
 	}
 	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.TASK_RUN_QUEUED {
@@ -337,7 +343,11 @@ func TestCancelWorkflowCancelsActiveAndPendingTasks(t *testing.T) {
 	if err := fixture.startTask(ctx, root.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.service.CancelWorkflow(ctx, fixture.workflowRun.ID, "user request"); err != nil {
+	if err := fixture.service.CancelWorkflow(
+		ctx,
+		fixture.workflowRun.ID,
+		"user request",
+	); err != nil {
 		t.Fatalf("CancelWorkflow() error = %v", err)
 	}
 
@@ -578,7 +588,11 @@ func (fixture *fixture) startTask(ctx context.Context, taskRunID uuid.UUID) erro
 	return fixture.service.HandleTaskEvent(ctx, event)
 }
 
-func (fixture *fixture) completeTask(ctx context.Context, taskRunID uuid.UUID, result string) error {
+func (fixture *fixture) completeTask(
+	ctx context.Context,
+	taskRunID uuid.UUID,
+	result string,
+) error {
 	taskRun := fixture.store.taskRuns[taskRunID]
 	event := task.TaskEvent{
 		WorkflowRunID: fixture.workflowRun.ID,
@@ -668,11 +682,8 @@ func (store *memoryStore) UpdateWorkflowRunByIdInternal(
 	if startedAt, ok := updates["started_at"].(time.Time); ok {
 		run.StartedAt = &startedAt
 	}
-	if completedAt, ok := updates["completed_at"].(time.Time); ok {
-		run.CompletedAt = &completedAt
-	}
-	if cancelledAt, ok := updates["cancelled_at"].(time.Time); ok {
-		run.CancelledAt = &cancelledAt
+	if endedAt, ok := updates["ended_at"].(time.Time); ok {
+		run.EndedAt = &endedAt
 	}
 	store.workflowRuns[id] = run
 	return run, nil
@@ -822,6 +833,18 @@ func (store *memoryStore) UpdateTaskAttemptById(
 		return attempt, nil
 	}
 	return task.TaskAttempt{}, errors.New("task attempt not found")
+}
+
+func (store *memoryStore) TaskAttemptRunningIdempotency(
+	_ context.Context,
+	id uuid.UUID,
+) (bool, error) {
+	for _, attempt := range store.attempts {
+		if attempt.ID == id {
+			return attempt.Status == task.TASK_ATTEMPT_RUNNING, nil
+		}
+	}
+	return false, errors.New("task attempt not found")
 }
 
 func (store *memoryStore) GetTaskDependenciesByWorkflowDefinitionId(

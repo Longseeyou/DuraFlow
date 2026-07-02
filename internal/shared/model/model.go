@@ -25,10 +25,10 @@ func (b BaseModel) GetID() uuid.UUID {
 	return b.ID
 }
 
-func (b BaseModel) GetCreatedAt() time.Time {
-	return b.CreatedAt
+func (b BaseModel) GetCreatedAt() *time.Time {
+	return &b.CreatedAt
 }
 
-func (b BaseModel) GetUpdatedAt() time.Time {
-	return b.UpdatedAt
+func (b BaseModel) GetUpdatedAt() *time.Time {
+	return &b.UpdatedAt
 }

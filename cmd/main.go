@@ -29,7 +29,7 @@ func main() {
 	// err = gorm.G[user.User](db).Create(ctx, &user.User{Email: "hi"})
 	user, err := gorm.G[user.User](db).Where("Email like ?", "h%").First(ctx)
 
-	workflowService := workflow.WorkflowService{Repository: postgresql.NewWorkflowRepositoryPostgres(db)}
+	workflowService := workflow.NewWorkflowService(postgresql.NewPostgresWorkflowRepository(db))
 
 	// workflowService.CreateWorkflow(ctx, user.ID, "hi", "hello")
 
