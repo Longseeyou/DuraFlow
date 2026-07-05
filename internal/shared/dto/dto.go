@@ -8,14 +8,14 @@ import (
 
 type ResponseDto struct {
 	ID        uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt *time.Time
+	UpdatedAt *time.Time
 }
 
 type BaseModel interface {
 	GetID() uuid.UUID
-	GetCreatedAt() time.Time
-	GetUpdatedAt() time.Time
+	GetCreatedAt() *time.Time
+	GetUpdatedAt() *time.Time
 }
 
 func (rD *ResponseDto) BaseModelToResponseDto(bM BaseModel) {
