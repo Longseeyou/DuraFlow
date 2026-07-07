@@ -71,6 +71,25 @@ type TaskRun struct {
 	Output           *string
 }
 
+func ValidPreviousTaskRunStatus(newStatus TaskRunStatus) []TaskRunStatus {
+	validPrevious := []TaskRunStatus{}
+	switch newStatus {
+	case TASK_RUN_PENDING:
+		validPrevious = append(validPrevious, TASK_RUN_FAILED)
+	case TASK_RUN_QUEUED:
+		validPrevious = append(validPrevious, TASK_RUN_PENDING)
+	case TASK_RUN_COMPLETED:
+		validPrevious = append(validPrevious, TASK_RUN_QUEUED)
+	case TASK_RUN_FAILED:
+		validPrevious = append(validPrevious, TASK_RUN_QUEUED)
+	case TASK_RUN_CANCELLED:
+	//TODO:
+	case TASK_RUN_DEAD_LETTERED:
+		validPrevious = append(validPrevious, TASK_RUN_QUEUED)
+	}
+	return validPrevious
+}
+
 type TaskAttempt struct {
 	model.BaseModel
 	TaskRunID     uuid.UUID `gorm:"uniqueIndex:idx_task_attempt"`
@@ -82,4 +101,21 @@ type TaskAttempt struct {
 	EndedAt       *time.Time
 	TimeoutAt     *time.Time
 	Log           *string
+}
+
+func ValidPreviousTaskAttemptStatus(
+	newStatus TaskAttemptStatus,
+) []TaskAttemptStatus {
+	validPrevious := []TaskAttemptStatus{}
+	switch newStatus {
+	case TASK_ATTEMPT_QUEUED:
+	case TASK_ATTEMPT_RUNNING:
+		validPrevious = append(validPrevious, TASK_ATTEMPT_QUEUED)
+	case TASK_ATTEMPT_COMPLETED:
+		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
+	case TASK_ATTEMPT_FAILED:
+		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
+	default:
+	}
+	return validPrevious
 }

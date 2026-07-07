@@ -6,6 +6,7 @@ import (
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/repository"
 	"github.com/Longseeyou/DuraFlow/internal/task"
+	"github.com/Longseeyou/DuraFlow/internal/workflow"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -32,13 +33,13 @@ func (pTR *PostgresTaskRepository) GetTaskDefinitionByWorkflowDefinition(
 	uId uuid.UUID,
 	wDId uuid.UUID,
 ) ([]task.TaskDefinition, error) {
-	var tD []task.TaskDefinition
+	var tDs []task.TaskDefinition
 	result := pTR.database.WithContext(ctx).
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
 		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
-		Find(&tD)
-	return tD, result.Error
+		Find(&tDs)
+	return tDs, result.Error
 }
 
 func (pTR *PostgresTaskRepository) GetTaskDefinitionByUserAndId(
@@ -76,6 +77,7 @@ func (pTR *PostgresTaskRepository) UpdateTaskDefinitionByUserAndId(
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
 	result := pTR.filterTaskDefinitionByUserAndId(ctx, uId, tDId).
+		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
 		Model(&tD).
 		Updates(newTD)
@@ -89,20 +91,8 @@ func (pTR *PostgresTaskRepository) SoftDeleteTaskDefinition(
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
 	result := pTR.filterTaskDefinitionByUserAndId(ctx, uId, tDId).
+		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
-		Delete(&tD)
-	return tD, repository.CheckRowsAffected(result)
-}
-
-func (pTR *PostgresTaskRepository) HardDeleteTaskDefinition(
-	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
-) (task.TaskDefinition, error) {
-	var tD task.TaskDefinition
-	result := pTR.filterTaskDefinitionByUserAndId(ctx, uId, tDId).
-		Clauses(clause.Returning{}).
-		Unscoped().
 		Delete(&tD)
 	return tD, repository.CheckRowsAffected(result)
 }
@@ -122,15 +112,15 @@ func (pTR *PostgresTaskRepository) GetTaskDependencyByWorkflowDefinition(
 	uId uuid.UUID,
 	wDId uuid.UUID,
 ) ([]task.TaskDependency, error) {
-	var tDp []task.TaskDependency
+	var tDps []task.TaskDependency
 	result := pTR.database.WithContext(ctx).
 		Joins("JOIN task_definitions td_task ON td_task.id = task_dependencies.task_id").
 		Joins("JOIN task_definitions td_dep ON td_dep.id = task_dependencies.depend_on_task_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = td_task.workflow_definition_id AND workflow_definitions.id = td_dep.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
 		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
-		Find(&tDp)
-	return tDp, result.Error
+		Find(&tDps)
+	return tDps, result.Error
 }
 
 func (pTR *PostgresTaskRepository) GetTaskDependencyByUserAndId(
@@ -176,6 +166,7 @@ func (pTR *PostgresTaskRepository) UpdateTaskDependencyByUserAndId(
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
 	result := pTR.filterTaskDependencyByUserAndId(ctx, uId, tDpId).
+		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
 		Model(&tDp).
 		Updates(newTDp)
@@ -189,19 +180,8 @@ func (pTR *PostgresTaskRepository) SoftDeleteTaskDependency(
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
 	result := pTR.filterTaskDependencyByUserAndId(ctx, uId, tDpId).
+		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
-		Delete(&tDp)
-	return tDp, repository.CheckRowsAffected(result)
-}
-
-func (pTR *PostgresTaskRepository) HardDeleteTaskDependency(
-	ctx context.Context, uId uuid.UUID,
-	tDpId uuid.UUID,
-) (task.TaskDependency, error) {
-	var tDp task.TaskDependency
-	result := pTR.filterTaskDependencyByUserAndId(ctx, uId, tDpId).
-		Clauses(clause.Returning{}).
-		Unscoped().
 		Delete(&tDp)
 	return tDp, repository.CheckRowsAffected(result)
 }
@@ -221,15 +201,15 @@ func (pTR *PostgresTaskRepository) GetTaskRunByWorkflowRun(
 	uId uuid.UUID,
 	wRId uuid.UUID,
 ) ([]task.TaskRun, error) {
-	var tR []task.TaskRun
+	var tRs []task.TaskRun
 	result := pTR.database.WithContext(ctx).
 		Joins("JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id").
 		Joins("JOIN workflow_runs ON workflow_runs.id = task_runs.workflow_run_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id AND workflow_definitions.id = workflow_runs.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
 		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).
-		Find(&tR)
-	return tR, result.Error
+		Find(&tRs)
+	return tRs, result.Error
 }
 
 func (pTR *PostgresTaskRepository) GetTaskRunByUserAndId(
@@ -292,19 +272,6 @@ func (pTR *PostgresTaskRepository) SoftDeleteTaskRun(
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTR *PostgresTaskRepository) HardDeleteTaskRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
-) (task.TaskRun, error) {
-	var tR task.TaskRun
-	result := pTR.filterTaskRunByUserAndId(ctx, uId, tRId).
-		Clauses(clause.Returning{}).
-		Unscoped().
-		Delete(&tR)
-	return tR, repository.CheckRowsAffected(result)
-}
-
 // TaskAttempt
 
 func (pTR *PostgresTaskRepository) GetTaskAttemptByTaskRun(
@@ -312,7 +279,7 @@ func (pTR *PostgresTaskRepository) GetTaskAttemptByTaskRun(
 	uId uuid.UUID,
 	tRId uuid.UUID,
 ) ([]task.TaskAttempt, error) {
-	var tA []task.TaskAttempt
+	var tAs []task.TaskAttempt
 	result := pTR.database.WithContext(ctx).
 		Joins("JOIN task_runs ON task_runs.id = task_attempts.task_run_id").
 		Joins("JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id").
@@ -320,8 +287,8 @@ func (pTR *PostgresTaskRepository) GetTaskAttemptByTaskRun(
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id AND workflow_definitions.id = task_definitions.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
 		Where("workflows.user_id = ? AND task_runs.id = ?", uId, tRId).
-		Find(&tA)
-	return tA, result.Error
+		Find(&tAs)
+	return tAs, result.Error
 }
 
 func (pTR *PostgresTaskRepository) GetTaskAttemptByUserAndId(
@@ -376,19 +343,6 @@ func (pTR *PostgresTaskRepository) SoftDeleteTaskAttempt(
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (pTR *PostgresTaskRepository) HardDeleteTaskAttempt(
-	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
-) (task.TaskAttempt, error) {
-	var tA task.TaskAttempt
-	result := pTR.filterTaskAttemptByUserAndId(ctx, uId, tAId).
-		Clauses(clause.Returning{}).
-		Unscoped().
-		Delete(&tA)
-	return tA, repository.CheckRowsAffected(result)
-}
-
 // Internal
 
 type PostgresTaskRepositoryInternal struct {
@@ -412,11 +366,24 @@ func (pTRI *PostgresTaskRepositoryInternal) GetTaskDefinitionsByWorkflowDefiniti
 	ctx context.Context,
 	wDId uuid.UUID,
 ) ([]task.TaskDefinition, error) {
-	var definitions []task.TaskDefinition
+	var tDs []task.TaskDefinition
 	result := pTRI.database.WithContext(ctx).
 		Where("workflow_definition_id = ?", wDId).
-		Find(&definitions)
-	return definitions, result.Error
+		Find(&tDs)
+	return tDs, result.Error
+}
+
+func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskDefinition(
+	ctx context.Context,
+	tDId uuid.UUID,
+) (task.TaskDefinition, error) {
+	var tD task.TaskDefinition
+	result := pTRI.database.WithContext(ctx).
+		Where("id = ?", tDId).
+		Clauses(clause.Returning{}).
+		Unscoped().
+		Delete(&tD)
+	return tD, repository.CheckRowsAffected(result)
 }
 
 func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependencyById(
@@ -432,12 +399,25 @@ func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefinit
 	ctx context.Context,
 	wDId uuid.UUID,
 ) ([]task.TaskDependency, error) {
-	var dependencies []task.TaskDependency
+	var tDps []task.TaskDependency
 	result := pTRI.database.WithContext(ctx).
 		Joins("JOIN task_definitions ON task_definitions.id = task_dependencies.task_id").
 		Where("task_definitions.workflow_definition_id = ?", wDId).
-		Find(&dependencies)
-	return dependencies, result.Error
+		Find(&tDps)
+	return tDps, result.Error
+}
+
+func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskDependency(
+	ctx context.Context,
+	tDpId uuid.UUID,
+) (task.TaskDependency, error) {
+	var tDp task.TaskDependency
+	result := pTRI.database.WithContext(ctx).
+		Where("id = ?", tDpId).
+		Clauses(clause.Returning{}).
+		Unscoped().
+		Delete(&tDp)
+	return tDp, repository.CheckRowsAffected(result)
 }
 
 func (pTRI *PostgresTaskRepositoryInternal) GetTaskRunById(
@@ -456,12 +436,12 @@ func (pTRI *PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunId(
 	ctx context.Context,
 	wRId uuid.UUID,
 ) ([]task.TaskRun, error) {
-	var taskRuns []task.TaskRun
+	var tRs []task.TaskRun
 	result := pTRI.database.WithContext(ctx).
 		Preload("TaskDefinition").
 		Where("workflow_run_id = ?", wRId).
-		Find(&taskRuns)
-	return taskRuns, result.Error
+		Find(&tRs)
+	return tRs, result.Error
 }
 
 func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunById(
@@ -478,6 +458,33 @@ func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunById(
 	return tR, repository.CheckRowsAffected(result)
 }
 
+func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskRun(
+	ctx context.Context,
+	tRId uuid.UUID,
+) (task.TaskRun, error) {
+	var tR task.TaskRun
+	result := pTRI.database.WithContext(ctx).
+		Where("id = ?", tRId).
+		Clauses(clause.Returning{}).
+		Unscoped().
+		Delete(&tR)
+	return tR, repository.CheckRowsAffected(result)
+}
+
+func (pTRI *PostgresTaskRepositoryInternal) TaskRunIdempotency(
+	ctx context.Context,
+	tRId uuid.UUID,
+	newStatus task.TaskRunStatus,
+) (bool, error) {
+	var tR task.TaskRun
+	result := pTRI.database.WithContext(ctx).
+		Where("id = ? AND status IN ?", tRId, task.ValidPreviousTaskRunStatus(newStatus)).
+		Clauses(clause.Returning{}).
+		Model(&tR).
+		Updates(map[string]any{"status": newStatus})
+	return result.RowsAffected == 1, result.Error
+}
+
 func (pTRI *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	ctx context.Context,
 	tA task.TaskAttempt,
@@ -486,14 +493,17 @@ func (pTRI *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	return tA, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) DeleteTaskAttemptById(
+func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskAttempt(
 	ctx context.Context,
 	tAId uuid.UUID,
-) error {
+) (task.TaskAttempt, error) {
+	var tA task.TaskAttempt
 	result := pTRI.database.WithContext(ctx).
+		Where("id = ?", tAId).
+		Clauses(clause.Returning{}).
 		Unscoped().
-		Delete(&task.TaskAttempt{}, "id = ?", tAId)
-	return repository.CheckRowsAffected(result)
+		Delete(&tA)
+	return tA, repository.CheckRowsAffected(result)
 }
 
 func (pTRI *PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
@@ -522,16 +532,17 @@ func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskAttemptById(
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) TaskAttemptRunningIdempotency(
+func (pTRI *PostgresTaskRepositoryInternal) TaskAttemptIdempotency(
 	ctx context.Context,
 	tAId uuid.UUID,
+	newStatus task.TaskAttemptStatus,
 ) (bool, error) {
 	var tA task.TaskAttempt
 	result := pTRI.database.WithContext(ctx).
-		Where("id = ? AND status = ?", tAId, task.TASK_ATTEMPT_RUNNING).
+		Where("id = ? AND status IN ?", tAId, task.ValidPreviousTaskAttemptStatus(newStatus)).
 		Clauses(clause.Returning{}).
 		Model(&tA).
-		Updates(map[string]any{"status": task.TASK_ATTEMPT_RUNNING})
+		Updates(map[string]any{"status": newStatus})
 	return result.RowsAffected == 1, result.Error
 }
 
