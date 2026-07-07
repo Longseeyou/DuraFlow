@@ -478,6 +478,27 @@ func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunById(
 	return tR, repository.CheckRowsAffected(result)
 }
 
+func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunByIdAndStatus(
+	ctx context.Context,
+	tRId uuid.UUID,
+	statuses []task.TaskRunStatus,
+	newTR map[string]any,
+) (task.TaskRun, bool, error) {
+	var tR task.TaskRun
+	result := pTRI.database.WithContext(ctx).
+		Where("id = ? AND status IN ?", tRId, statuses).
+		Clauses(clause.Returning{}).
+		Model(&tR).
+		Updates(newTR)
+	if result.Error != nil {
+		return task.TaskRun{}, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return task.TaskRun{}, false, nil
+	}
+	return tR, true, nil
+}
+
 func (pTRI *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	ctx context.Context,
 	tA task.TaskAttempt,

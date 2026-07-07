@@ -99,4 +99,10 @@ type WorkflowRunStoreInternal interface {
 		wRId uuid.UUID,
 		newWR map[string]any,
 	) (WorkflowRun, error)
+	UpdateWorkflowRunByIdAndStatusInternal(
+		ctx context.Context,
+		wRId uuid.UUID,
+		statuses []WorkflowRunStatus,
+		newWR map[string]any,
+	) (WorkflowRun, bool, error)
 }

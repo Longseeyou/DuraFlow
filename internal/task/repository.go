@@ -138,6 +138,12 @@ type TaskRunStoreInternal interface {
 		tRId uuid.UUID,
 		newTR map[string]any,
 	) (TaskRun, error)
+	UpdateTaskRunByIdAndStatus(
+		ctx context.Context,
+		tRId uuid.UUID,
+		statuses []TaskRunStatus,
+		newTR map[string]any,
+	) (TaskRun, bool, error)
 }
 
 type TaskAttemptStoreInternal interface {
