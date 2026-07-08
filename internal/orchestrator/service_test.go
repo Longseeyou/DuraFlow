@@ -676,6 +676,30 @@ func (store *memoryStore) UpdateWorkflowRunByIdInternal(
 	updates map[string]any,
 ) (workflow.WorkflowRun, error) {
 	run := store.workflowRuns[id]
+	run = applyWorkflowRunUpdates(run, updates)
+	store.workflowRuns[id] = run
+	return run, nil
+}
+
+func (store *memoryStore) UpdateWorkflowRunByIdAndStatusInternal(
+	_ context.Context,
+	id uuid.UUID,
+	statuses []workflow.WorkflowRunStatus,
+	updates map[string]any,
+) (workflow.WorkflowRun, bool, error) {
+	run := store.workflowRuns[id]
+	if !workflowStatusAllowed(run.Status, statuses) {
+		return workflow.WorkflowRun{}, false, nil
+	}
+	run = applyWorkflowRunUpdates(run, updates)
+	store.workflowRuns[id] = run
+	return run, true, nil
+}
+
+func applyWorkflowRunUpdates(
+	run workflow.WorkflowRun,
+	updates map[string]any,
+) workflow.WorkflowRun {
 	if status, ok := updates["status"].(workflow.WorkflowRunStatus); ok {
 		run.Status = status
 	}
@@ -685,8 +709,22 @@ func (store *memoryStore) UpdateWorkflowRunByIdInternal(
 	if endedAt, ok := updates["ended_at"].(time.Time); ok {
 		run.EndedAt = &endedAt
 	}
-	store.workflowRuns[id] = run
-	return run, nil
+	if cancelledAt, ok := updates["cancelled_at"].(time.Time); ok {
+		run.CancelledAt = &cancelledAt
+	}
+	return run
+}
+
+func workflowStatusAllowed(
+	status workflow.WorkflowRunStatus,
+	allowed []workflow.WorkflowRunStatus,
+) bool {
+	for _, candidate := range allowed {
+		if status == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func (store *memoryStore) GetTaskDefinitionById(
@@ -744,6 +782,37 @@ func (store *memoryStore) UpdateTaskRunById(
 	updates map[string]any,
 ) (task.TaskRun, error) {
 	taskRun := store.taskRuns[id]
+	var err error
+	taskRun, err = store.applyTaskRunUpdates(taskRun, updates)
+	if err != nil {
+		return task.TaskRun{}, err
+	}
+	store.taskRuns[id] = taskRun
+	return taskRun, nil
+}
+
+func (store *memoryStore) UpdateTaskRunByIdAndStatus(
+	_ context.Context,
+	id uuid.UUID,
+	statuses []task.TaskRunStatus,
+	updates map[string]any,
+) (task.TaskRun, bool, error) {
+	taskRun := store.taskRuns[id]
+	if !taskStatusAllowed(taskRun.Status, statuses) {
+		return task.TaskRun{}, false, nil
+	}
+	updated, err := store.applyTaskRunUpdates(taskRun, updates)
+	if err != nil {
+		return task.TaskRun{}, false, err
+	}
+	store.taskRuns[id] = updated
+	return updated, true, nil
+}
+
+func (store *memoryStore) applyTaskRunUpdates(
+	taskRun task.TaskRun,
+	updates map[string]any,
+) (task.TaskRun, error) {
 	if status, ok := updates["status"].(task.TaskRunStatus); ok {
 		if store.failTaskUpdateStatus[status] > 0 {
 			store.failTaskUpdateStatus[status]--
@@ -766,8 +835,16 @@ func (store *memoryStore) UpdateTaskRunById(
 	if value, exists := updates["output"]; exists {
 		taskRun.Output, _ = value.(*string)
 	}
-	store.taskRuns[id] = taskRun
 	return taskRun, nil
+}
+
+func taskStatusAllowed(status task.TaskRunStatus, allowed []task.TaskRunStatus) bool {
+	for _, candidate := range allowed {
+		if status == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func (store *memoryStore) CreateTaskAttempt(

@@ -130,6 +130,12 @@ type TaskRunStoreInternal interface {
 	) (TaskRun, error)
 	HardDeleteTaskRun(ctx context.Context, tRId uuid.UUID) (TaskRun, error)
 	TaskRunIdempotency(ctx context.Context, tRId uuid.UUID, newStatus TaskRunStatus) (bool, error)
+	UpdateTaskRunByIdAndStatus(
+		ctx context.Context,
+		tRId uuid.UUID,
+		statuses []TaskRunStatus,
+		newTR map[string]any,
+	) (TaskRun, bool, error)
 }
 
 type TaskAttemptStoreInternal interface {

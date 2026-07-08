@@ -364,3 +364,24 @@ func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflowRun(
 		Delete(&wR)
 	return wR, repository.CheckRowsAffected(result)
 }
+
+func (pWRI PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByIdAndStatusInternal(
+	ctx context.Context,
+	wRId uuid.UUID,
+	statuses []workflow.WorkflowRunStatus,
+	newWR map[string]any,
+) (workflow.WorkflowRun, bool, error) {
+	wR := workflow.WorkflowRun{}
+	result := pWRI.database.WithContext(ctx).
+		Where("id = ? AND status IN ?", wRId, statuses).
+		Clauses(clause.Returning{}).
+		Model(&wR).
+		Updates(newWR)
+	if result.Error != nil {
+		return workflow.WorkflowRun{}, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return workflow.WorkflowRun{}, false, nil
+	}
+	return wR, true, nil
+}

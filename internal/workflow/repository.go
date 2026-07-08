@@ -95,4 +95,10 @@ type WorkflowRunStoreInternal interface {
 		newWR map[string]any,
 	) (WorkflowRun, error)
 	HardDeleteWorkflowRun(ctx context.Context, wRId uuid.UUID) (WorkflowRun, error)
+	UpdateWorkflowRunByIdAndStatusInternal(
+		ctx context.Context,
+		wRId uuid.UUID,
+		statuses []WorkflowRunStatus,
+		newWR map[string]any,
+	) (WorkflowRun, bool, error)
 }
