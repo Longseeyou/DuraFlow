@@ -64,11 +64,11 @@ type TaskRun struct {
 	Status           TaskRunStatus
 	RetryCount       uint
 	MaxRetries       uint
-	ScheduledAt      *time.Time
-	StartedAt        *time.Time
-	EndedAt          *time.Time
-	Input            *string
-	Output           *string
+	// ScheduledAt      *time.Time
+	StartedAt *time.Time
+	EndedAt   *time.Time
+	Input     *string
+	Output    *string
 }
 
 func ValidPreviousTaskRunStatus(newStatus TaskRunStatus) []TaskRunStatus {

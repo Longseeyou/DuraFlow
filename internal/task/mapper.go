@@ -118,8 +118,3 @@ func taskAttemptInternalDtoToModel(tADto TaskAttemptInternalDto) TaskAttempt {
 	tA.StartedAt = tADto.StartedAt
 	return tA
 }
-
-func taskAttemptInternalDtoToMap(tADto TaskAttemptInternalDto) (map[string]any, error) {
-	tA := map[string]any{}
-	return tA, nil
-}

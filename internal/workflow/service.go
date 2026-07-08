@@ -6,15 +6,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type TaskService interface {
+	IsTaskDependencyDag(ctx context.Context, uId uuid.UUID, wDId uuid.UUID) (bool, error)
+}
+
 type WorkflowService struct {
 	repository WorkflowRepository
+	tS         TaskService
 }
 
 func NewWorkflowService(
-	workflowRepository WorkflowRepository,
+	workflowRepository WorkflowRepository, taskService TaskService,
 ) *WorkflowService {
 	return &WorkflowService{
-		repository: workflowRepository,
+		repository: workflowRepository, tS: taskService,
 	}
 }
 
@@ -64,7 +69,7 @@ func (wS *WorkflowService) GetWorkflowByUserAndId(
 	return workflowModelToResponseDto(w), nil
 }
 
-func (wS *WorkflowService) UpdateWorkflowById(
+func (wS *WorkflowService) UpdateWorkflowByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wId uuid.UUID,
@@ -78,7 +83,7 @@ func (wS *WorkflowService) UpdateWorkflowById(
 		newW["description"] = *wDto.Description
 	}
 
-	w, err := wS.repository.UpdateWorkflowById(ctx, uId, wId, newW)
+	w, err := wS.repository.UpdateWorkflowByUserAndId(ctx, uId, wId, newW)
 	if err != nil {
 		return WorkflowResponseDto{}, err
 	}
@@ -92,19 +97,6 @@ func (wS *WorkflowService) SoftDeleteWorkflow(
 	wId uuid.UUID,
 ) (WorkflowResponseDto, error) {
 	w, err := wS.repository.SoftDeleteWorkflow(ctx, uId, wId)
-	if err != nil {
-		return WorkflowResponseDto{}, err
-	}
-
-	return workflowModelToResponseDto(w), nil
-}
-
-func (wS *WorkflowService) HardDeleteWorkflow(
-	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
-) (WorkflowResponseDto, error) {
-	w, err := wS.repository.HardDeleteWorkflow(ctx, uId, wId)
 	if err != nil {
 		return WorkflowResponseDto{}, err
 	}
@@ -126,7 +118,7 @@ func (wS *WorkflowService) CreateWorkflowDefinition(
 
 	wD := WorkflowDefinition{WorkflowID: wId}
 	wD.WorkflowID = wId
-	wD.Status = DRAFTED
+	wD.Status = WORKFLOW_DEFINITION_EDITING
 
 	wD, err = wS.repository.CreateWorkflowDefinition(ctx, wD)
 	if err != nil {
@@ -167,7 +159,7 @@ func (wS *WorkflowService) GetWorkflowDefinitionByUserAndId(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (wS *WorkflowService) UpdateWorkflowDefinitionById(
+func (wS *WorkflowService) UpdateWorkflowDefinitionByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wDId uuid.UUID,
@@ -176,9 +168,18 @@ func (wS *WorkflowService) UpdateWorkflowDefinitionById(
 	newWD := map[string]any{}
 	if wDDto.Status != nil {
 		newWD["status"] = *wDDto.Status
+		if newWD["status"] == WORKFLOW_DEFINITION_ACTIVATED {
+			valid, err := wS.tS.IsTaskDependencyDag(ctx, uId, wDId)
+			if err != nil {
+				return WorkflowDefinitionResponseDto{}, err
+			}
+			if !valid {
+
+			}
+		}
 	}
 
-	wD, err := wS.repository.UpdateWorkflowDefinitionById(ctx, uId, wDId, newWD)
+	wD, err := wS.repository.UpdateWorkflowDefinitionByUserAndId(ctx, uId, wDId, newWD)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
@@ -199,19 +200,6 @@ func (wS *WorkflowService) SoftDeleteWorkflowDefinition(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (wS *WorkflowService) HardDeleteWorkflowDefinition(
-	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-) (WorkflowDefinitionResponseDto, error) {
-	wD, err := wS.repository.HardDeleteWorkflowDefinition(ctx, uId, wDId)
-	if err != nil {
-		return WorkflowDefinitionResponseDto{}, err
-	}
-
-	return workflowDefinitionModelToResponseDto(wD), nil
-}
-
 // WorkflowRun
 
 func (wS *WorkflowService) CreateWorkflowRun(
@@ -224,7 +212,7 @@ func (wS *WorkflowService) CreateWorkflowRun(
 		return WorkflowRunResponseDto{}, err
 	}
 
-	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: PENDING}
+	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: WORKFLOW_RUN_PENDING}
 	wR.WorkflowDefinitionID = wDId
 
 	wR, err = wS.repository.CreateWorkflowRun(ctx, wR)
@@ -265,7 +253,7 @@ func (wS *WorkflowService) GetWorkflowRunByUserAndId(
 	return workflowRunModelToResponseDto(wR), nil
 }
 
-func (wS *WorkflowService) UpdateWorkflowRunById(
+func (wS *WorkflowService) UpdateWorkflowRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wRId uuid.UUID,
@@ -276,7 +264,7 @@ func (wS *WorkflowService) UpdateWorkflowRunById(
 		newWR["status"] = *wRDto.Status
 	}
 
-	wR, err := wS.repository.UpdateWorkflowRunById(ctx, uId, wRId, newWR)
+	wR, err := wS.repository.UpdateWorkflowRunByUserAndId(ctx, uId, wRId, newWR)
 	if err != nil {
 		return WorkflowRunResponseDto{}, err
 	}
@@ -290,19 +278,6 @@ func (wS *WorkflowService) SoftDeleteWorkflowRun(
 	wRId uuid.UUID,
 ) (WorkflowRunResponseDto, error) {
 	wR, err := wS.repository.SoftDeleteWorkflowRun(ctx, uId, wRId)
-	if err != nil {
-		return WorkflowRunResponseDto{}, err
-	}
-
-	return workflowRunModelToResponseDto(wR), nil
-}
-
-func (wS *WorkflowService) HardDeleteWorkflowRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
-) (WorkflowRunResponseDto, error) {
-	wR, err := wS.repository.HardDeleteWorkflowRun(ctx, uId, wRId)
 	if err != nil {
 		return WorkflowRunResponseDto{}, err
 	}

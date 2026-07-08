@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/repository"
 	"github.com/Longseeyou/DuraFlow/internal/workflow"
@@ -45,7 +46,7 @@ func (pWR PostgresWorkflowRepository) GetWorkflowByUserAndId(
 	return w, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowById(
+func (pWR PostgresWorkflowRepository) UpdateWorkflowByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wId uuid.UUID,
@@ -69,20 +70,6 @@ func (pWR PostgresWorkflowRepository) SoftDeleteWorkflow(
 	result := pWR.database.WithContext(ctx).
 		Clauses(clause.Returning{}).
 		Where("user_id = ? AND id = ?", uId, wId).
-		Delete(&w)
-	return w, repository.CheckRowsAffected(result)
-}
-
-func (pWR PostgresWorkflowRepository) HardDeleteWorkflow(
-	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
-) (workflow.Workflow, error) {
-	w := workflow.Workflow{}
-	result := pWR.database.WithContext(ctx).
-		Clauses(clause.Returning{}).
-		Where("user_id = ? AND id = ?", uId, wId).
-		Unscoped().
 		Delete(&w)
 	return w, repository.CheckRowsAffected(result)
 }
@@ -136,17 +123,47 @@ func (pWR PostgresWorkflowRepository) filterWorkflowByUserAndId(
 		Where("workflow_definitions.id = ?", wDId)
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowDefinitionById(
+func (pWR PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wDId uuid.UUID,
 	newWD map[string]any,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := pWR.filterWorkflowByUserAndId(ctx, uId, wDId).
+
+	filter := pWR.filterWorkflowByUserAndId(ctx, uId, wDId)
+	v, ok := newWD["status"]
+	if ok {
+		newStatus, ok := v.(workflow.WorkflowDefinitionStatus)
+		if !ok {
+			return wD, fmt.Errorf("")
+		}
+
+		filter = filter.Where(
+			"workflow_definitions.status IN",
+			workflow.ValidPreviousWorkflowDefinitionStatus(newStatus),
+		)
+	}
+
+	result := filter.
 		Clauses(clause.Returning{}).
 		Model(&wD).
 		Updates(newWD)
+	return wD, repository.CheckRowsAffected(result)
+}
+
+func (pWR PostgresWorkflowRepository) UpdateWorkflowDefinitionStatusByUserAndId(
+	ctx context.Context,
+	uId uuid.UUID,
+	wDId uuid.UUID,
+	newStatus workflow.WorkflowDefinitionStatus,
+) (workflow.WorkflowDefinition, error) {
+	wD := workflow.WorkflowDefinition{}
+	result := pWR.filterWorkflowByUserAndId(ctx, uId, wDId).
+		Where("workflow_definitions.status IN", workflow.ValidPreviousWorkflowDefinitionStatus(newStatus)).
+		Clauses(clause.Returning{}).
+		Model(&wD).
+		Updates(map[string]workflow.WorkflowDefinitionStatus{"status": newStatus})
 	return wD, repository.CheckRowsAffected(result)
 }
 
@@ -158,19 +175,6 @@ func (pWR PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
 	wD := workflow.WorkflowDefinition{}
 	result := pWR.filterWorkflowByUserAndId(ctx, uId, wDId).
 		Clauses(clause.Returning{}).
-		Delete(&wD)
-	return wD, repository.CheckRowsAffected(result)
-}
-
-func (pWR PostgresWorkflowRepository) HardDeleteWorkflowDefinition(
-	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-) (workflow.WorkflowDefinition, error) {
-	wD := workflow.WorkflowDefinition{}
-	result := pWR.filterWorkflowByUserAndId(ctx, uId, wDId).
-		Clauses(clause.Returning{}).
-		Unscoped().
 		Delete(&wD)
 	return wD, repository.CheckRowsAffected(result)
 }
@@ -226,7 +230,7 @@ func (pWR PostgresWorkflowRepository) filterWorkflowRunByUserAndId(
 		Where("workflow_runs.id = ?", wRId)
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowRunById(
+func (pWR PostgresWorkflowRepository) UpdateWorkflowRunByUserAndId(
 	ctx context.Context,
 	uId uuid.UUID,
 	wRId uuid.UUID,
@@ -275,6 +279,8 @@ func NewPostgresWorkflowRepositoryInternal(database *gorm.DB) workflow.WorkflowR
 	return PostgresWorkflowRepositoryInternal{database: database}
 }
 
+// Workflow
+
 func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowById(
 	ctx context.Context,
 	wId uuid.UUID,
@@ -283,6 +289,21 @@ func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowById(
 	result := pWRI.database.WithContext(ctx).Where("id = ?", wId).First(&w)
 	return w, result.Error
 }
+
+func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
+	ctx context.Context,
+	wId uuid.UUID,
+) (workflow.Workflow, error) {
+	w := workflow.Workflow{}
+	result := pWRI.database.WithContext(ctx).
+		Clauses(clause.Returning{}).
+		Where("id = ?", wId).
+		Unscoped().
+		Delete(&w)
+	return w, repository.CheckRowsAffected(result)
+}
+
+// WorkflowDefinition
 
 func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionById(
 	ctx context.Context,
@@ -293,6 +314,21 @@ func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionById(
 	return wD, result.Error
 }
 
+func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
+	ctx context.Context,
+	wDId uuid.UUID,
+) (workflow.WorkflowDefinition, error) {
+	wD := workflow.WorkflowDefinition{}
+	result := pWRI.database.WithContext(ctx).
+		Clauses(clause.Returning{}).
+		Where("id = ?", wDId).
+		Unscoped().
+		Delete(&wD)
+	return wD, repository.CheckRowsAffected(result)
+}
+
+// WorkflowRun
+
 func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowRunById(
 	ctx context.Context,
 	wRId uuid.UUID,
@@ -302,7 +338,7 @@ func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowRunById(
 	return wR, result.Error
 }
 
-func (pWRI PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByIdInternal(
+func (pWRI PostgresWorkflowRepositoryInternal) UpdateWorkflowRunById(
 	ctx context.Context,
 	wRId uuid.UUID,
 	newWR map[string]any,
@@ -313,5 +349,18 @@ func (pWRI PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByIdInternal(
 		Clauses(clause.Returning{}).
 		Model(&wR).
 		Updates(newWR)
+	return wR, repository.CheckRowsAffected(result)
+}
+
+func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflowRun(
+	ctx context.Context,
+	wRId uuid.UUID,
+) (workflow.WorkflowRun, error) {
+	wR := workflow.WorkflowRun{}
+	result := pWRI.database.WithContext(ctx).
+		Clauses(clause.Returning{}).
+		Where("id = ?", wRId).
+		Unscoped().
+		Delete(&wR)
 	return wR, repository.CheckRowsAffected(result)
 }

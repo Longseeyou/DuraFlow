@@ -11,19 +11,19 @@ import (
 type WorkflowDefinitionStatus string
 
 const (
-	DRAFTED  WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_DRAFTED"
-	ACTIVATE WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ACTIVATE"
-	ARCHIVED WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ARCHIVED"
+	WORKFLOW_DEFINITION_EDITING   WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_EDITING"
+	WORKFLOW_DEFINITION_ACTIVATED WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_ACTIVATED"
+	WORKFLOW_DEFINITION_RUNNING   WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_RUNNING"
 )
 
 type WorkflowRunStatus string
 
 const (
-	PENDING   WorkflowRunStatus = "WORKFLOW_RUN_PENDING"
-	RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
-	COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
-	FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
-	CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
+	WORKFLOW_RUN_PENDING   WorkflowRunStatus = "WORKFLOW_RUN_PENDING"
+	WORKFLOW_RUN_RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
+	WORKFLOW_RUN_COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
+	WORKFLOW_RUN_FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
+	WORKFLOW_RUN_CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
 )
 
 type Workflow struct {
@@ -38,8 +38,26 @@ type WorkflowDefinition struct {
 	model.BaseModel
 	WorkflowID uuid.UUID
 	Workflow   Workflow `json:"-"`
-	Version    uint     `gorm:"uniqueIndex:idx_workflow_definition;autoIncrement"`
+	Version    uint     `         gorm:"uniqueIndex:idx_workflow_definition;autoIncrement"`
 	Status     WorkflowDefinitionStatus
+}
+
+func ValidPreviousWorkflowDefinitionStatus(
+	newStatus WorkflowDefinitionStatus,
+) []WorkflowDefinitionStatus {
+	validPrevious := []WorkflowDefinitionStatus{newStatus}
+	switch newStatus {
+	case WORKFLOW_DEFINITION_EDITING:
+		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_ACTIVATED)
+	case WORKFLOW_DEFINITION_ACTIVATED:
+		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_EDITING)
+		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_RUNNING)
+	case WORKFLOW_DEFINITION_RUNNING:
+		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_ACTIVATED)
+	default:
+		return []WorkflowDefinitionStatus{}
+	}
+	return validPrevious
 }
 
 type WorkflowRun struct {
@@ -49,5 +67,5 @@ type WorkflowRun struct {
 	Status               WorkflowRunStatus
 	StartedAt            *time.Time
 	EndedAt              *time.Time
-	CancelledAt          *time.Time
+	// CancelledAt          *time.Time
 }

@@ -52,17 +52,17 @@ func (tS *TaskService) GetTaskDefinitionByWorkflowDefinition(
 	uId uuid.UUID,
 	wDId uuid.UUID,
 ) ([]TaskDefinitionResponseDto, error) {
-	tDs, err := tS.repository.GetTaskDefinitionByWorkflowDefinition(ctx, uId, wDId)
+	tD, err := tS.repository.GetTaskDefinitionByWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
 		return nil, err
 	}
 
-	dtos := []TaskDefinitionResponseDto{}
-	for _, v := range tDs {
-		dtos = append(dtos, taskDefinitionModelToResponseDto(v))
+	tDDto := []TaskDefinitionResponseDto{}
+	for _, v := range tD {
+		tDDto = append(tDDto, taskDefinitionModelToResponseDto(v))
 	}
 
-	return dtos, nil
+	return tDDto, nil
 }
 
 func (tS *TaskService) getTaskDefinitionByUserAndId(
@@ -119,19 +119,6 @@ func (tS *TaskService) SoftDeleteTaskDefinition(
 	tDId uuid.UUID,
 ) (TaskDefinitionResponseDto, error) {
 	tD, err := tS.repository.SoftDeleteTaskDefinition(ctx, uId, tDId)
-	if err != nil {
-		return TaskDefinitionResponseDto{}, err
-	}
-
-	return taskDefinitionModelToResponseDto(tD), nil
-}
-
-func (tS *TaskService) HardDeleteTaskDefinition(
-	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
-) (TaskDefinitionResponseDto, error) {
-	tD, err := tS.repository.HardDeleteTaskDefinition(ctx, uId, tDId)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
@@ -252,17 +239,59 @@ func (tS *TaskService) SoftDeleteTaskDependency(
 	return taskDependencyModelToResponseDto(tDp), nil
 }
 
-func (tS *TaskService) HardDeleteTaskDependency(
+func (tS *TaskService) IsTaskDependencyDag(
 	ctx context.Context,
 	uId uuid.UUID,
-	tDpId uuid.UUID,
-) (TaskDependencyResponseDto, error) {
-	tDp, err := tS.repository.HardDeleteTaskDependency(ctx, uId, tDpId)
+	wDId uuid.UUID,
+) (bool, error) {
+	tDps, err := tS.repository.GetTaskDependencyByWorkflowDefinition(ctx, uId, wDId)
 	if err != nil {
-		return TaskDependencyResponseDto{}, err
+		return false, err
 	}
 
-	return taskDependencyModelToResponseDto(tDp), nil
+	graph := make(map[uuid.UUID][]uuid.UUID)
+
+	for _, tDp := range tDps {
+		graph[tDp.DependOnTaskID] = append(graph[tDp.DependOnTaskID], tDp.TaskID)
+	}
+
+	// https://en.wikipedia.org/wiki/Topological_sorting
+	const (
+		unvisited = iota
+		visiting
+		visited
+	)
+
+	state := make(map[uuid.UUID]int, len(graph))
+
+	var visit func(uuid.UUID) error
+	visit = func(tDId uuid.UUID) error {
+		switch state[tDId] {
+		case visiting:
+			return fmt.Errorf("")
+		case visited:
+			return nil
+		}
+
+		state[tDId] = visiting
+		for _, nextTDId := range graph[tDId] {
+			err := visit(nextTDId)
+			if err != nil {
+				return err
+			}
+		}
+		state[tDId] = visited
+		return nil
+	}
+
+	for tDId := range graph {
+		err = visit(tDId)
+		if err != nil {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // TaskRun
@@ -361,19 +390,6 @@ func (tS *TaskService) SoftDeleteTaskRun(
 	return taskRunModelToResponseDto(tR), nil
 }
 
-func (tS *TaskService) HardDeleteTaskRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
-) (TaskRunResponseDto, error) {
-	tR, err := tS.repository.HardDeleteTaskRun(ctx, uId, tRId)
-	if err != nil {
-		return TaskRunResponseDto{}, err
-	}
-
-	return taskRunModelToResponseDto(tR), nil
-}
-
 // TaskAttempt
 
 func (tS *TaskService) GetTaskAttemptByTaskRun(
@@ -413,19 +429,6 @@ func (tS *TaskService) SoftDeleteTaskAttempt(
 	tAId uuid.UUID,
 ) (TaskAttemptResponseDto, error) {
 	tA, err := tS.repository.SoftDeleteTaskAttempt(ctx, uId, tAId)
-	if err != nil {
-		return TaskAttemptResponseDto{}, err
-	}
-
-	return taskAttemptModelToResponseDto(tA), nil
-}
-
-func (tS *TaskService) HardDeleteTaskAttempt(
-	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
-) (TaskAttemptResponseDto, error) {
-	tA, err := tS.repository.HardDeleteTaskAttempt(ctx, uId, tAId)
 	if err != nil {
 		return TaskAttemptResponseDto{}, err
 	}

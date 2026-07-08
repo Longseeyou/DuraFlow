@@ -97,9 +97,10 @@ type TaskCommandRequest struct {
 
 type TaskCommandResponse struct {
 	TaskAttemptID uuid.UUID
-	Status        *TaskAttemptStatus
-	StartedAt     *time.Time
-	EndedAt       *time.Time
+	WorkerID      uuid.UUID
+	Status        TaskAttemptStatus
+	StartedAt     time.Time
+	EndedAt       time.Time
 	Output        *string
 	Log           *string
 }

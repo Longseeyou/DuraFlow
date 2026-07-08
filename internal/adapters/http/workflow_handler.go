@@ -32,7 +32,7 @@ func (wH *WorkflowHandler) ProtectedRoutes() chi.Router {
 
 		r.Route("/{wId}", func(r chi.Router) {
 			r.Get("", wH.getWorkflowByUserAndId)
-			r.Put("", wH.updateWorkflowById)
+			r.Put("", wH.updateWorkflowByUserAndId)
 			r.Delete("", wH.deleteWorkflow)
 
 			r.Route("/workflow_definition", func(r chi.Router) {
@@ -44,7 +44,7 @@ func (wH *WorkflowHandler) ProtectedRoutes() chi.Router {
 
 	r.Route("/workflow_definition/{wDId}", func(r chi.Router) {
 		r.Get("", wH.getWorkflowDefinitionByUserAndId)
-		r.Put("", wH.updateWorkflowDefinitionById)
+		r.Put("", wH.updateWorkflowDefinitionByUserAndId)
 		r.Delete("", wH.deleteWorkflowDefinition)
 
 		r.Route("/workflow_run", func(r chi.Router) {
@@ -55,7 +55,7 @@ func (wH *WorkflowHandler) ProtectedRoutes() chi.Router {
 
 	r.Route("/workflow_run/{wRId}", func(r chi.Router) {
 		r.Get("", wH.getWorkflowRunByUserAndId)
-		r.Put("", wH.updateWorkflowRunById)
+		r.Put("", wH.updateWorkflowRunByUserAndId)
 		r.Delete("", wH.deleteWorkflowRun)
 	})
 
@@ -120,7 +120,7 @@ func (wH *WorkflowHandler) getWorkflowByUserAndId(w http.ResponseWriter, r *http
 	renderJSON(w, r, http.StatusOK, wResponseDto)
 }
 
-func (wH *WorkflowHandler) updateWorkflowById(w http.ResponseWriter, r *http.Request) {
+func (wH *WorkflowHandler) updateWorkflowByUserAndId(w http.ResponseWriter, r *http.Request) {
 	uId, valid := userIDFromToken(w, r)
 	if !valid {
 		return
@@ -139,7 +139,7 @@ func (wH *WorkflowHandler) updateWorkflowById(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	wResponseDto, err := wH.service.UpdateWorkflowById(r.Context(), uId, wId, wRequestDto)
+	wResponseDto, err := wH.service.UpdateWorkflowByUserAndId(r.Context(), uId, wId, wRequestDto)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -240,7 +240,10 @@ func (wH *WorkflowHandler) getWorkflowDefinitionByUserAndId(
 	renderJSON(w, r, http.StatusOK, wDResponseDto)
 }
 
-func (wH *WorkflowHandler) updateWorkflowDefinitionById(w http.ResponseWriter, r *http.Request) {
+func (wH *WorkflowHandler) updateWorkflowDefinitionByUserAndId(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	uId, valid := userIDFromToken(w, r)
 	if !valid {
 		return
@@ -259,7 +262,7 @@ func (wH *WorkflowHandler) updateWorkflowDefinitionById(w http.ResponseWriter, r
 		return
 	}
 
-	wDResponseDto, err := wH.service.UpdateWorkflowDefinitionById(
+	wDResponseDto, err := wH.service.UpdateWorkflowDefinitionByUserAndId(
 		r.Context(),
 		uId,
 		wDId,
@@ -365,7 +368,7 @@ func (wH *WorkflowHandler) getWorkflowRunByUserAndId(
 	renderJSON(w, r, http.StatusOK, wRResponseDto)
 }
 
-func (wH *WorkflowHandler) updateWorkflowRunById(w http.ResponseWriter, r *http.Request) {
+func (wH *WorkflowHandler) updateWorkflowRunByUserAndId(w http.ResponseWriter, r *http.Request) {
 	uId, valid := userIDFromToken(w, r)
 	if !valid {
 		return
@@ -384,7 +387,7 @@ func (wH *WorkflowHandler) updateWorkflowRunById(w http.ResponseWriter, r *http.
 		return
 	}
 
-	wRResponseDto, err := wH.service.UpdateWorkflowRunById(
+	wRResponseDto, err := wH.service.UpdateWorkflowRunByUserAndId(
 		r.Context(),
 		uId,
 		wRId,

@@ -56,16 +56,17 @@ func (w Worker) Run(ctx context.Context) {
 				continue
 			}
 
-			valid, err := w.taskRepository.TaskAttemptRunningIdempotency(
+			valid, err := w.taskRepository.TaskAttemptIdempotency(
 				ctx,
 				tCRequest.TaskAttemptID,
+				task.TASK_ATTEMPT_RUNNING,
 			)
 			if err != nil {
 				continue
 			}
 			if !valid {
 				slog.Error(
-					"Worker Run taskRepository.TaskAttemptRunningIdempotency",
+					"Worker Run taskRepository.TaskAttemptIdempotency",
 					"workerID",
 					w.workerID,
 					"error",
@@ -112,9 +113,9 @@ func (w Worker) Run(ctx context.Context) {
 			endedAt := time.Now()
 
 			var tCResponse task.TaskCommandResponse
-			tCResponse.Status = &taskAttemptStatus
-			tCResponse.StartedAt = &startedAt
-			tCResponse.EndedAt = &endedAt
+			tCResponse.Status = taskAttemptStatus
+			tCResponse.StartedAt = startedAt
+			tCResponse.EndedAt = endedAt
 			tCResponse.Output = &taskOutput
 			tCResponse.Log = &taskLog
 
