@@ -28,10 +28,16 @@ func WithClock(now func() time.Time) Option {
 	}
 }
 
+func WithTaskPoller(poller *TaskPoller) Option {
+	return func(service *Service) {
+		service.taskPoller = poller
+	}
+}
+
 type Service struct {
 	workflows  WorkflowRepository
 	tasks      TaskRepository
-	publisher  TaskPublisher
+	taskPoller *TaskPoller
 	now        func() time.Time
 	runLocksMu sync.Mutex
 	runLocks   map[uuid.UUID]*runLock
@@ -51,12 +57,18 @@ func NewService(
 	service := &Service{
 		workflows: workflows,
 		tasks:     tasks,
-		publisher: publisher,
 		now:       time.Now,
 		runLocks:  make(map[uuid.UUID]*runLock),
 	}
 	for _, option := range options {
 		option(service)
+	}
+	if service.taskPoller == nil {
+		service.taskPoller = NewTaskPoller(
+			tasks,
+			publisher,
+			WithTaskPollerClock(service.now),
+		)
 	}
 	return service
 }
@@ -114,10 +126,10 @@ func (service *Service) CancelWorkflow(
 	if err != nil {
 		return fmt.Errorf("get workflow run: %w", err)
 	}
-	if workflowRun.Status == workflow.CANCELLED {
+	if workflowRun.Status == workflow.WORKFLOW_RUN_CANCELLED {
 		return nil
 	}
-	if workflowRun.Status == workflow.COMPLETED || workflowRun.Status == workflow.FAILED {
+	if workflowRun.Status == workflow.WORKFLOW_RUN_COMPLETED || workflowRun.Status == workflow.WORKFLOW_RUN_FAILED {
 		return fmt.Errorf(
 			"%w: workflow %s cannot be cancelled from %v",
 			ErrInvalidStateTransition,
@@ -170,10 +182,10 @@ func (service *Service) CancelWorkflow(
 	}
 
 	if _, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, workflowRunID, []workflow.WorkflowRunStatus{
-		workflow.PENDING,
-		workflow.RUNNING,
+		workflow.WORKFLOW_RUN_PENDING,
+		workflow.WORKFLOW_RUN_RUNNING,
 	}, map[string]any{
-		"status":       workflow.CANCELLED,
+		"status":       workflow.WORKFLOW_RUN_CANCELLED,
 		"cancelled_at": now,
 	}); err != nil {
 		return fmt.Errorf("cancel workflow run: %w", err)
@@ -318,10 +330,10 @@ func (service *Service) handleTaskDeadLettered(
 		return nil
 	}
 	if _, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, taskRun.WorkflowRunID, []workflow.WorkflowRunStatus{
-		workflow.PENDING,
-		workflow.RUNNING,
+		workflow.WORKFLOW_RUN_PENDING,
+		workflow.WORKFLOW_RUN_RUNNING,
 	}, map[string]any{
-		"status":   workflow.FAILED,
+		"status":   workflow.WORKFLOW_RUN_FAILED,
 		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("fail workflow run: %w", err)
@@ -370,16 +382,16 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 			)
 		}
 		updates := map[string]any{
-			"status":   workflow.COMPLETED,
+			"status":   workflow.WORKFLOW_RUN_COMPLETED,
 			"ended_at": now,
 		}
-		if workflowRun.Status == workflow.PENDING {
+		if workflowRun.Status == workflow.WORKFLOW_RUN_PENDING {
 			updates["started_at"] = now
 		}
 		_, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(
 			ctx,
 			workflowRunID,
-			[]workflow.WorkflowRunStatus{workflow.PENDING, workflow.RUNNING},
+			[]workflow.WorkflowRunStatus{workflow.WORKFLOW_RUN_PENDING, workflow.WORKFLOW_RUN_RUNNING},
 			updates,
 		)
 		if err != nil {
@@ -396,11 +408,11 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 	if err != nil {
 		return err
 	}
-	if workflowRun.Status == workflow.PENDING {
+	if workflowRun.Status == workflow.WORKFLOW_RUN_PENDING {
 		if _, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, workflowRunID, []workflow.WorkflowRunStatus{
-			workflow.PENDING,
+			workflow.WORKFLOW_RUN_PENDING,
 		}, map[string]any{
-			"status":     workflow.RUNNING,
+			"status":     workflow.WORKFLOW_RUN_RUNNING,
 			"started_at": now,
 		}); err != nil {
 			return fmt.Errorf("start workflow run: %w", err)
@@ -419,104 +431,11 @@ func (service *Service) scheduleWorkflow(ctx context.Context, workflowRunID uuid
 		if !dependenciesCompleted(required[taskRun.TaskDefinitionID], byDefinition) {
 			continue
 		}
-		if err := service.queueTask(ctx, taskRun, taskRun); err != nil {
+		if err := service.taskPoller.QueueTask(ctx, taskRun, taskRun); err != nil {
 			return err
 		}
 	}
 	return service.resolveWorkflow(ctx, workflowRunID)
-}
-
-func (service *Service) queueTask(
-	ctx context.Context,
-	taskRun task.TaskRun,
-	rollback task.TaskRun,
-) error {
-	if taskRun.Status != task.TASK_RUN_PENDING && taskRun.Status != task.TASK_RUN_FAILED {
-		return fmt.Errorf(
-			"%w: task %s cannot be queued from %v",
-			ErrInvalidStateTransition,
-			taskRun.ID,
-			taskRun.Status,
-		)
-	}
-
-	definition := taskRun.TaskDefinition
-	if definition.ID == uuid.Nil {
-		var err error
-		definition, err = service.tasks.GetTaskDefinitionById(ctx, taskRun.TaskDefinitionID)
-		if err != nil {
-			return fmt.Errorf("get task definition: %w", err)
-		}
-	}
-
-	now := service.now().UTC()
-	attemptNumber := taskRun.RetryCount + 1
-	queued, changed, err := service.tasks.UpdateTaskRunByIdAndStatus(ctx, taskRun.ID, []task.TaskRunStatus{
-		task.TASK_RUN_PENDING,
-		task.TASK_RUN_FAILED,
-	}, map[string]any{
-		"status":       task.TASK_RUN_QUEUED,
-		"retry_count":  taskRun.RetryCount,
-		"scheduled_at": now,
-		"started_at":   nil,
-		"ended_at":     nil,
-	})
-	if err != nil {
-		return fmt.Errorf("queue task run: %w", err)
-	}
-	if !changed {
-		return nil
-	}
-	taskRun = mergeTaskRunSnapshot(queued, rollback)
-	taskRun.TaskDefinition = definition
-
-	attempt, err := service.tasks.CreateTaskAttempt(ctx, task.TaskAttempt{
-		TaskRunID:     taskRun.ID,
-		AttemptNumber: attemptNumber,
-		Status:        task.TASK_ATTEMPT_QUEUED,
-	})
-	if err != nil {
-		return errors.Join(
-			fmt.Errorf("create task attempt: %w", err),
-			service.restoreTaskRunIfQueued(ctx, rollback),
-		)
-	}
-
-	command := task.Command{
-		CommandID:     uuid.New(),
-		WorkflowRunID: taskRun.WorkflowRunID,
-		TaskRunID:     taskRun.ID,
-		TaskKey:       definition.Name,
-		TaskType:      definition.TaskType,
-		Payload:       taskRun.Input,
-		Attempt:       attemptNumber,
-		CreatedAt:     now,
-	}
-	if err := service.publisher.PublishTask(ctx, command); err != nil {
-		return errors.Join(
-			fmt.Errorf("publish task command: %w", err),
-			wrapIfError(
-				"delete unpublished task attempt",
-				service.tasks.DeleteTaskAttemptById(ctx, attempt.ID),
-			),
-			service.restoreTaskRunIfQueued(ctx, rollback),
-		)
-	}
-	return nil
-}
-
-func (service *Service) restoreTaskRunIfQueued(ctx context.Context, taskRun task.TaskRun) error {
-	_, _, err := service.tasks.UpdateTaskRunByIdAndStatus(ctx, taskRun.ID, []task.TaskRunStatus{
-		task.TASK_RUN_QUEUED,
-	}, map[string]any{
-		"status":       taskRun.Status,
-		"retry_count":  taskRun.RetryCount,
-		"scheduled_at": taskRun.ScheduledAt,
-		"started_at":   taskRun.StartedAt,
-		"ended_at":     taskRun.EndedAt,
-		"output":       taskRun.Output,
-	})
-	return wrapIfError("restore task run after dispatch failure", err)
 }
 
 func (service *Service) handleTaskStarted(
@@ -699,7 +618,7 @@ func (service *Service) handleTaskFailed(
 		updated.RetryCount = retryCount
 		updated.Status = task.TASK_RUN_FAILED
 		updated = mergeTaskRunSnapshot(updated, taskRun)
-		return service.queueTask(ctx, updated, rollback)
+		return service.taskPoller.QueueTask(ctx, updated, rollback)
 	}
 
 	if _, changed, err := service.tasks.UpdateTaskRunByIdAndStatus(ctx, taskRun.ID, []task.TaskRunStatus{
@@ -713,10 +632,10 @@ func (service *Service) handleTaskFailed(
 		return nil
 	}
 	if _, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, taskRun.WorkflowRunID, []workflow.WorkflowRunStatus{
-		workflow.PENDING,
-		workflow.RUNNING,
+		workflow.WORKFLOW_RUN_PENDING,
+		workflow.WORKFLOW_RUN_RUNNING,
 	}, map[string]any{
-		"status":   workflow.FAILED,
+		"status":   workflow.WORKFLOW_RUN_FAILED,
 		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("fail workflow run: %w", err)
@@ -776,10 +695,10 @@ func (service *Service) handleTaskCancelled(
 		}
 	}
 	if _, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, taskRun.WorkflowRunID, []workflow.WorkflowRunStatus{
-		workflow.PENDING,
-		workflow.RUNNING,
+		workflow.WORKFLOW_RUN_PENDING,
+		workflow.WORKFLOW_RUN_RUNNING,
 	}, map[string]any{
-		"status":   workflow.FAILED,
+		"status":   workflow.WORKFLOW_RUN_FAILED,
 		"ended_at": now,
 	}); err != nil {
 		return fmt.Errorf("fail workflow after task cancellation: %w", err)
@@ -796,10 +715,10 @@ func (service *Service) resolveWorkflow(ctx context.Context, workflowRunID uuid.
 	for _, taskRun := range taskRuns {
 		if taskRun.Status == task.TASK_RUN_DEAD_LETTERED {
 			_, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, workflowRunID, []workflow.WorkflowRunStatus{
-				workflow.PENDING,
-				workflow.RUNNING,
+				workflow.WORKFLOW_RUN_PENDING,
+				workflow.WORKFLOW_RUN_RUNNING,
 			}, map[string]any{
-				"status":   workflow.FAILED,
+				"status":   workflow.WORKFLOW_RUN_FAILED,
 				"ended_at": service.now().UTC(),
 			})
 			return err
@@ -812,10 +731,10 @@ func (service *Service) resolveWorkflow(ctx context.Context, workflowRunID uuid.
 		return nil
 	}
 	if _, _, err := service.workflows.UpdateWorkflowRunByIdAndStatusInternal(ctx, workflowRunID, []workflow.WorkflowRunStatus{
-		workflow.PENDING,
-		workflow.RUNNING,
+		workflow.WORKFLOW_RUN_PENDING,
+		workflow.WORKFLOW_RUN_RUNNING,
 	}, map[string]any{
-		"status":   workflow.COMPLETED,
+		"status":   workflow.WORKFLOW_RUN_COMPLETED,
 		"ended_at": service.now().UTC(),
 	}); err != nil {
 		return fmt.Errorf("complete workflow run: %w", err)
@@ -1103,7 +1022,7 @@ func validateWorkflowRunMaterialization(
 }
 
 func isTerminalWorkflow(status workflow.WorkflowRunStatus) bool {
-	return status == workflow.COMPLETED || status == workflow.FAILED || status == workflow.CANCELLED
+	return status == workflow.WORKFLOW_RUN_COMPLETED || status == workflow.WORKFLOW_RUN_FAILED || status == workflow.WORKFLOW_RUN_CANCELLED
 }
 
 func eventEffectIsPersisted(
@@ -1113,9 +1032,9 @@ func eventEffectIsPersisted(
 ) bool {
 	switch eventType {
 	case task.TaskCompleted:
-		return taskStatus == task.TASK_RUN_COMPLETED && workflowStatus == workflow.COMPLETED
+		return taskStatus == task.TASK_RUN_COMPLETED && workflowStatus == workflow.WORKFLOW_RUN_COMPLETED
 	case task.TaskFailed, task.TaskDeadLettered:
-		return taskStatus == task.TASK_RUN_DEAD_LETTERED && workflowStatus == workflow.FAILED
+		return taskStatus == task.TASK_RUN_DEAD_LETTERED && workflowStatus == workflow.WORKFLOW_RUN_FAILED
 	case task.TaskCancelled:
 		return taskStatus == task.TASK_RUN_CANCELLED
 	default:

@@ -64,30 +64,36 @@ type TaskRun struct {
 	Status           TaskRunStatus
 	RetryCount       uint
 	MaxRetries       uint
-	// ScheduledAt      *time.Time
-	StartedAt *time.Time
-	EndedAt   *time.Time
-	Input     *string
-	Output    *string
+	ScheduledAt      *time.Time
+	StartedAt        *time.Time
+	EndedAt          *time.Time
+	Input            *string
+	Output           *string
 }
 
 func ValidPreviousTaskRunStatus(newStatus TaskRunStatus) []TaskRunStatus {
-	validPrevious := []TaskRunStatus{}
 	switch newStatus {
 	case TASK_RUN_PENDING:
-		validPrevious = append(validPrevious, TASK_RUN_FAILED)
+		return []TaskRunStatus{TASK_RUN_FAILED}
 	case TASK_RUN_QUEUED:
-		validPrevious = append(validPrevious, TASK_RUN_PENDING)
+		return []TaskRunStatus{TASK_RUN_PENDING, TASK_RUN_FAILED}
+	case TASK_RUN_RUNNING:
+		return []TaskRunStatus{TASK_RUN_QUEUED}
 	case TASK_RUN_COMPLETED:
-		validPrevious = append(validPrevious, TASK_RUN_QUEUED)
+		return []TaskRunStatus{TASK_RUN_RUNNING}
 	case TASK_RUN_FAILED:
-		validPrevious = append(validPrevious, TASK_RUN_QUEUED)
+		return []TaskRunStatus{TASK_RUN_RUNNING}
 	case TASK_RUN_CANCELLED:
-	//TODO:
+		return []TaskRunStatus{
+			TASK_RUN_PENDING,
+			TASK_RUN_QUEUED,
+			TASK_RUN_RUNNING,
+			TASK_RUN_FAILED,
+		}
 	case TASK_RUN_DEAD_LETTERED:
-		validPrevious = append(validPrevious, TASK_RUN_QUEUED)
+		return []TaskRunStatus{TASK_RUN_RUNNING, TASK_RUN_FAILED}
 	}
-	return validPrevious
+	return nil
 }
 
 type TaskAttempt struct {
@@ -114,6 +120,10 @@ func ValidPreviousTaskAttemptStatus(
 	case TASK_ATTEMPT_COMPLETED:
 		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
 	case TASK_ATTEMPT_FAILED:
+		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
+	case TASK_ATTEMPT_CANCELLED:
+		validPrevious = append(validPrevious, TASK_ATTEMPT_QUEUED, TASK_ATTEMPT_RUNNING)
+	case TASK_ATTEMPT_DEAD_LETTERED:
 		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
 	default:
 	}

@@ -67,5 +67,5 @@ type WorkflowRun struct {
 	Status               WorkflowRunStatus
 	StartedAt            *time.Time
 	EndedAt              *time.Time
-	// CancelledAt          *time.Time
+	CancelledAt          *time.Time
 }

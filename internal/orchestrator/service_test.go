@@ -36,7 +36,7 @@ func TestScheduleWorkflowQueuesOnlyRunnableTasks(t *testing.T) {
 		t.Fatalf("ScheduleWorkflow() error = %v", err)
 	}
 
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.RUNNING {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_RUNNING {
 		t.Fatalf("workflow status = %v, want RUNNING", got)
 	}
 	if got := fixture.store.taskRuns[root.ID].Status; got != task.TASK_RUN_QUEUED {
@@ -98,7 +98,7 @@ func TestCompletedTaskUnblocksDependencyAndCompletesWorkflow(t *testing.T) {
 	if err := fixture.completeTask(ctx, child.ID, `{"child":true}`); err != nil {
 		t.Fatal(err)
 	}
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.COMPLETED {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_COMPLETED {
 		t.Fatalf("workflow status = %v, want COMPLETED", got)
 	}
 }
@@ -140,7 +140,7 @@ func TestFailedTaskRetriesThenDeadLettersWorkflow(t *testing.T) {
 	if got := fixture.store.taskRuns[taskRun.ID].Status; got != task.TASK_RUN_DEAD_LETTERED {
 		t.Fatalf("task status = %v, want DEAD_LETTERED", got)
 	}
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.FAILED {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_FAILED {
 		t.Fatalf("workflow status = %v, want FAILED", got)
 	}
 }
@@ -188,7 +188,7 @@ func TestHandleTaskEventRejectsInvalidTransition(t *testing.T) {
 	fixture.store.workflowRuns[fixture.workflowRun.ID] = workflow.WorkflowRun{
 		BaseModel:            fixture.workflowRun.BaseModel,
 		WorkflowDefinitionID: fixture.workflowRun.WorkflowDefinitionID,
-		Status:               workflow.RUNNING,
+		Status:               workflow.WORKFLOW_RUN_RUNNING,
 	}
 
 	event := task.TaskEvent{
@@ -308,7 +308,7 @@ func TestCompletedEventCanRecordAfterStateWasAlreadyCommitted(t *testing.T) {
 	if err := fixture.service.HandleTaskEvent(ctx, event); err == nil {
 		t.Fatal("HandleTaskEvent() error = nil, want event persistence error")
 	}
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.COMPLETED {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_COMPLETED {
 		t.Fatalf("workflow status = %v, want already committed COMPLETED", got)
 	}
 	if err := fixture.service.HandleTaskEvent(ctx, event); err != nil {
@@ -351,7 +351,7 @@ func TestCancelWorkflowCancelsActiveAndPendingTasks(t *testing.T) {
 		t.Fatalf("CancelWorkflow() error = %v", err)
 	}
 
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.CANCELLED {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_CANCELLED {
 		t.Fatalf("workflow status = %v, want CANCELLED", got)
 	}
 	if got := fixture.store.taskRuns[root.ID].Status; got != task.TASK_RUN_CANCELLED {
@@ -376,7 +376,7 @@ func TestStaleAttemptEventIsRejected(t *testing.T) {
 	fixture.store.workflowRuns[fixture.workflowRun.ID] = workflow.WorkflowRun{
 		BaseModel:            fixture.workflowRun.BaseModel,
 		WorkflowDefinitionID: fixture.workflowRun.WorkflowDefinitionID,
-		Status:               workflow.RUNNING,
+		Status:               workflow.WORKFLOW_RUN_RUNNING,
 	}
 	attempt := task.TaskAttempt{
 		TaskRunID:     taskRun.ID,
@@ -420,7 +420,7 @@ func TestScheduleWorkflowRejectsDependencyCycleBeforeStarting(t *testing.T) {
 	if !errors.Is(err, ErrInvalidWorkflowGraph) {
 		t.Fatalf("ScheduleWorkflow() error = %v, want ErrInvalidWorkflowGraph", err)
 	}
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.PENDING {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_PENDING {
 		t.Fatalf("workflow status = %v, want PENDING", got)
 	}
 	if len(fixture.publisher.commands) != 0 {
@@ -445,7 +445,7 @@ func TestScheduleWorkflowRejectsInvalidDefinitionBeforeListingTaskRuns(t *testin
 	if fixture.store.listTaskRunsCalls != 0 {
 		t.Fatalf("task runs listed = %d, want 0", fixture.store.listTaskRunsCalls)
 	}
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.PENDING {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_PENDING {
 		t.Fatalf("workflow status = %v, want PENDING", got)
 	}
 	if len(fixture.publisher.commands) != 0 {
@@ -494,7 +494,7 @@ func TestCompletedEventRecoversWhenTaskUpdateFailsAfterAttemptUpdate(t *testing.
 	if err := fixture.service.HandleTaskEvent(ctx, event); err != nil {
 		t.Fatalf("HandleTaskEvent() redelivery error = %v", err)
 	}
-	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.COMPLETED {
+	if got := fixture.store.workflowRuns[fixture.workflowRun.ID].Status; got != workflow.WORKFLOW_RUN_COMPLETED {
 		t.Fatalf("workflow status = %v, want COMPLETED", got)
 	}
 }
@@ -509,11 +509,11 @@ type fixture struct {
 }
 
 func newFixture(now time.Time) *fixture {
-	workflowDefinition := workflow.WorkflowDefinition{Status: workflow.ACTIVATE}
+	workflowDefinition := workflow.WorkflowDefinition{Status: workflow.WORKFLOW_DEFINITION_ACTIVATED}
 	workflowDefinition.ID = uuid.New()
 	workflowRun := workflow.WorkflowRun{
 		WorkflowDefinitionID: workflowDefinition.ID,
-		Status:               workflow.PENDING,
+		Status:               workflow.WORKFLOW_RUN_PENDING,
 	}
 	workflowRun.ID = uuid.New()
 	store := &memoryStore{
@@ -738,7 +738,7 @@ func (store *memoryStore) GetTaskDefinitionById(
 	return definition, nil
 }
 
-func (store *memoryStore) GetTaskDefinitionsByWorkflowDefinitionId(
+func (store *memoryStore) GetTaskDefinitionsByWorkflowDefinition(
 	_ context.Context,
 	workflowDefinitionID uuid.UUID,
 ) ([]task.TaskDefinition, error) {
@@ -860,17 +860,17 @@ func (store *memoryStore) CreateTaskAttempt(
 	return attempt, nil
 }
 
-func (store *memoryStore) DeleteTaskAttemptById(
+func (store *memoryStore) HardDeleteTaskAttempt(
 	_ context.Context,
 	id uuid.UUID,
-) error {
+) (task.TaskAttempt, error) {
 	for key, attempt := range store.attempts {
 		if attempt.ID == id {
 			delete(store.attempts, key)
-			return nil
+			return attempt, nil
 		}
 	}
-	return errors.New("task attempt not found")
+	return task.TaskAttempt{}, errors.New("task attempt not found")
 }
 
 func (store *memoryStore) GetTaskAttemptByTaskRunAndNumber(
