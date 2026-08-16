@@ -15,83 +15,90 @@ type TaskRepository interface {
 
 type TaskDefinitionStore interface {
 	CreateTaskDefinition(ctx context.Context, tD TaskDefinition) (TaskDefinition, error)
-	GetTaskDefinitionByWorkflowDefinition(
+	GetTaskDefinitionsByWorkflowDefinition(
 		ctx context.Context,
-		uId uuid.UUID,
-		wDId uuid.UUID,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) ([]TaskDefinition, error)
-	GetTaskDefinitionByUserAndId(
+	GetTaskDefinitionByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		tDId uuid.UUID,
+		userID uuid.UUID,
+		taskDefinitionID uuid.UUID,
 	) (TaskDefinition, error)
-	UpdateTaskDefinitionByUserAndId(
+	UpdateTaskDefinitionByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		tDId uuid.UUID,
-		newTD map[string]any,
+		userID uuid.UUID,
+		taskDefinitionID uuid.UUID,
+		newTaskDefinition map[string]any,
 	) (TaskDefinition, error)
 	SoftDeleteTaskDefinition(
 		ctx context.Context,
-		uId uuid.UUID,
-		tDId uuid.UUID,
+		userID uuid.UUID,
+		taskDefinitionID uuid.UUID,
 	) (TaskDefinition, error)
 }
 
 type TaskDependencyStore interface {
-	CreateTaskDependency(ctx context.Context, tDp TaskDependency) (TaskDependency, error)
-	GetTaskDependencyByWorkflowDefinition(
+	CreateTaskDependency(ctx context.Context, taskDependency TaskDependency) (TaskDependency, error)
+	GetTaskDependenciesByWorkflowDefinition(
 		ctx context.Context,
-		uId uuid.UUID,
-		wDId uuid.UUID,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) ([]TaskDependency, error)
-	GetTaskDependencyByUserAndId(
+	GetTaskDependencyByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		tDpId uuid.UUID,
+		userID uuid.UUID,
+		taskDependencyID uuid.UUID,
 	) (TaskDependency, error)
-	UpdateTaskDependencyByUserAndId(
+	UpdateTaskDependencyByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		tDpId uuid.UUID,
-		newTDp map[string]any,
+		userID uuid.UUID,
+		taskDependencyID uuid.UUID,
+		newTaskDependency map[string]any,
 	) (TaskDependency, error)
 	SoftDeleteTaskDependency(
 		ctx context.Context,
-		uId uuid.UUID,
-		tDpId uuid.UUID,
+		userID uuid.UUID,
+		taskDependencyID uuid.UUID,
 	) (TaskDependency, error)
 }
 
 type TaskRunStore interface {
-	// CreateTaskRun(ctx context.Context, tR TaskRun) (TaskRun, error)
-	GetTaskRunByWorkflowRun(ctx context.Context, uId uuid.UUID, wRId uuid.UUID) ([]TaskRun, error)
-	GetTaskRunByUserAndId(
+	GetTaskRunsByWorkflowRun(
 		ctx context.Context,
-		uId uuid.UUID,
-		tRId uuid.UUID,
-	) (TaskRun, error)
-	UpdateTaskRunByUserAndId(
+		userID uuid.UUID,
+		workflowRunID uuid.UUID,
+	) ([]TaskRun, error)
+	GetTaskRunByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		tRId uuid.UUID,
-		newTR map[string]any,
+		userID uuid.UUID,
+		taskRunID uuid.UUID,
 	) (TaskRun, error)
-	SoftDeleteTaskRun(ctx context.Context, uId uuid.UUID, tRId uuid.UUID) (TaskRun, error)
+	UpdateTaskRunByUserAndID(
+		ctx context.Context,
+		userID uuid.UUID,
+		taskRunID uuid.UUID,
+		newTaskRun map[string]any,
+	) (TaskRun, error)
+	SoftDeleteTaskRun(ctx context.Context, userID uuid.UUID, taskRunID uuid.UUID) (TaskRun, error)
 }
 
 type TaskAttemptStore interface {
-	GetTaskAttemptByTaskRun(
+	GetTaskAttemptsByTaskRun(
 		ctx context.Context,
-		uId uuid.UUID,
-		tRId uuid.UUID,
+		userID uuid.UUID,
+		taskRunID uuid.UUID,
 	) ([]TaskAttempt, error)
-	GetTaskAttemptByUserAndId(
+	GetTaskAttemptByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		tAId uuid.UUID,
+		userID uuid.UUID,
+		taskAttemptID uuid.UUID,
 	) (TaskAttempt, error)
-	SoftDeleteTaskAttempt(ctx context.Context, uId uuid.UUID, tAId uuid.UUID) (TaskAttempt, error)
+	SoftDeleteTaskAttempt(
+		ctx context.Context,
+		userID uuid.UUID,
+		taskAttemptID uuid.UUID,
+	) (TaskAttempt, error)
 }
 
 type TaskRepositoryInternal interface {
@@ -103,59 +110,62 @@ type TaskRepositoryInternal interface {
 }
 
 type TaskDefinitionStoreInternal interface {
-	GetTaskDefinitionById(ctx context.Context, tDId uuid.UUID) (TaskDefinition, error)
+	GetTaskDefinitionByID(ctx context.Context, taskDefinitionID uuid.UUID) (TaskDefinition, error)
 	GetTaskDefinitionsByWorkflowDefinition(
 		ctx context.Context,
-		wDId uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) ([]TaskDefinition, error)
-	HardDeleteTaskDefinition(ctx context.Context, tDId uuid.UUID) (TaskDefinition, error)
+	HardDeleteTaskDefinition(
+		ctx context.Context,
+		taskDefinitionID uuid.UUID,
+	) (TaskDefinition, error)
 }
 
 type TaskDependencyStoreInternal interface {
-	GetTaskDependencyById(ctx context.Context, tDpId uuid.UUID) (TaskDependency, error)
+	GetTaskDependencyByID(ctx context.Context, taskDependencyID uuid.UUID) (TaskDependency, error)
 	GetTaskDependenciesByWorkflowDefinition(
 		ctx context.Context,
-		wDId uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) ([]TaskDependency, error)
-	HardDeleteTaskDependency(ctx context.Context, tDpId uuid.UUID) (TaskDependency, error)
+	HardDeleteTaskDependency(ctx context.Context, taskDependencyID uuid.UUID) (TaskDependency, error)
 }
 
 type TaskRunStoreInternal interface {
 	CreateTaskRun(ctx context.Context, tR TaskRun) (TaskRun, error)
-	GetTaskRunById(ctx context.Context, tRId uuid.UUID) (TaskRun, error)
-	// GetTaskRunsByWorkflowRun(ctx context.Context, wRId uuid.UUID) ([]TaskRun, error)
-	UpdateTaskRunById(
+	GetTaskRunByID(ctx context.Context, taskRunID uuid.UUID) (TaskRun, error)
+	// GetTaskRunsByWorkflowRun(ctx context.Context, workflowRunID uuid.UUID) ([]TaskRun, error)
+	UpdateTaskRunByID(
 		ctx context.Context,
-		tRId uuid.UUID,
+		taskRunID uuid.UUID,
 		newTR map[string]any,
 	) (TaskRun, error)
-	HardDeleteTaskRun(ctx context.Context, tRId uuid.UUID) (TaskRun, error)
-	TaskRunIdempotency(ctx context.Context, tRId uuid.UUID, newStatus TaskRunStatus) (bool, error)
+	HardDeleteTaskRun(ctx context.Context, taskRunID uuid.UUID) (TaskRun, error)
+	TaskRunIdempotency(ctx context.Context, taskRunID uuid.UUID, newStatus TaskRunStatus) (bool, error)
 
-	GetPredecessorTaskRuns(ctx context.Context, tRId uuid.UUID) ([]TaskRun, error)
+	GetPredecessorTaskRuns(ctx context.Context, taskRunID uuid.UUID) ([]TaskRun, error)
 }
 
 type TaskAttemptStoreInternal interface {
 	CreateTaskAttempt(ctx context.Context, tA TaskAttempt) (TaskAttempt, error)
-	HardDeleteTaskAttempt(ctx context.Context, tAId uuid.UUID) (TaskAttempt, error)
+	HardDeleteTaskAttempt(ctx context.Context, taskAttemptID uuid.UUID) (TaskAttempt, error)
 	GetTaskAttemptByTaskRunAndNumber(
 		ctx context.Context,
-		tRId uuid.UUID,
+		taskRunID uuid.UUID,
 		attemptNumber uint,
 	) (TaskAttempt, error)
-	UpdateTaskAttemptById(
+	UpdateTaskAttemptByID(
 		ctx context.Context,
-		tAId uuid.UUID,
+		taskAttemptID uuid.UUID,
 		newTA map[string]any,
 	) (TaskAttempt, error)
 	TaskAttemptIdempotency(
 		ctx context.Context,
-		tAId uuid.UUID,
+		taskAttemptID uuid.UUID,
 		newStatus TaskAttemptStatus,
 	) (bool, error)
 }
 
 type TaskEventStoreInternal interface {
-	TaskEventExists(ctx context.Context, eventId uuid.UUID) (bool, error)
+	TaskEventExists(ctx context.Context, eventID uuid.UUID) (bool, error)
 	CreateTaskEvent(ctx context.Context, event TaskEvent) (TaskEvent, error)
 }

@@ -14,7 +14,7 @@ type WorkflowRepository interface {
 
 type WorkflowStore interface {
 	CreateWorkflow(ctx context.Context, w Workflow) (Workflow, error)
-	GetWorkflowByUser(ctx context.Context, userID uuid.UUID) ([]Workflow, error)
+	GetWorkflowsByUser(ctx context.Context, userID uuid.UUID) ([]Workflow, error)
 	GetWorkflowByUserAndID(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -35,7 +35,7 @@ type WorkflowStore interface {
 
 type WorkflowDefinitionStore interface {
 	CreateWorkflowDefinition(ctx context.Context, wD WorkflowDefinition) (WorkflowDefinition, error)
-	GetWorkflowDefinitionByWorkflow(
+	GetWorkflowDefinitionsByWorkflow(
 		ctx context.Context,
 		userID uuid.UUID,
 		workflowID uuid.UUID,
@@ -59,7 +59,7 @@ type WorkflowDefinitionStore interface {
 }
 
 type WorkflowRunStore interface {
-	GetWorkflowRunByWorkflowDefinition(
+	GetWorkflowRunsByWorkflowDefinition(
 		ctx context.Context,
 		userID uuid.UUID,
 		workflowDefinitionID uuid.UUID,
@@ -80,6 +80,12 @@ type WorkflowRunStore interface {
 		userID uuid.UUID,
 		workflowRunID uuid.UUID,
 	) (WorkflowRun, error)
+
+	CountActiveWorkflowRunByUserAndWorkflowDefinition(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
+	) (int64, error)
 }
 
 type WorkflowRepositoryInternal interface {
@@ -89,7 +95,7 @@ type WorkflowRepositoryInternal interface {
 }
 
 type WorkflowStoreInternal interface {
-	GetWorkflowById(ctx context.Context, workflowID uuid.UUID) (Workflow, error)
+	GetWorkflowByID(ctx context.Context, workflowID uuid.UUID) (Workflow, error)
 	HardDeleteWorkflow(ctx context.Context, workflowID uuid.UUID) (Workflow, error)
 }
 
@@ -122,9 +128,4 @@ type WorkflowRunStoreInternal interface {
 		ctx context.Context,
 		workflowRunID uuid.UUID,
 	) (WorkflowRun, error)
-
-	CountActiveWorkflowRunByWorkflowDefinition(
-		ctx context.Context,
-		workflowDefinitionID uuid.UUID,
-	) (int64, error)
 }

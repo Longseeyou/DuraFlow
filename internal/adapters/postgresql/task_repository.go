@@ -20,77 +20,78 @@ func NewPostgresTaskRepository(database *gorm.DB) task.TaskRepository {
 	return &PostgresTaskRepository{database: database}
 }
 
-func (pTR *PostgresTaskRepository) CreateTaskDefinition(
+func (repo *PostgresTaskRepository) CreateTaskDefinition(
 	ctx context.Context,
 	tD task.TaskDefinition,
 ) (task.TaskDefinition, error) {
-	result := pTR.database.WithContext(ctx).Create(&tD)
+	result := repo.database.WithContext(ctx).Create(&tD)
 	return tD, result.Error
 }
 
-func (pTR *PostgresTaskRepository) GetTaskDefinitionByWorkflowDefinition(
+func (repo *PostgresTaskRepository) GetTaskDefinitionsByWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]task.TaskDefinition, error) {
 	var tDs []task.TaskDefinition
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
+		Where("workflows.user_id = ? AND workflow_definitions.id = ?", userID, workflowDefinitionID).
 		Find(&tDs)
 	return tDs, result.Error
 }
 
-func (pTR *PostgresTaskRepository) GetTaskDefinitionByUserAndId(
+func (repo *PostgresTaskRepository) GetTaskDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND task_definitions.id = ?", uId, tDId).First(&tD)
+		Where("workflows.user_id = ? AND task_definitions.id = ?", userID, taskDefinitionID).
+		First(&tD)
 	return tD, result.Error
 }
 
-func (pTR *PostgresTaskRepository) filterTaskDefinitionByUserAndId(
+func (repo *PostgresTaskRepository) filterTaskDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) *gorm.DB {
-	return pTR.database.WithContext(ctx).Where(`EXISTS (
+	return repo.database.WithContext(ctx).Where(`EXISTS (
       SELECT workflow_definitions.id
       FROM workflow_definitions
       JOIN workflows ON workflows.id = workflow_definitions.workflow_id
       WHERE workflow_definitions.id = task_definitions.workflow_definition_id AND workflows.user_id = ?
-    )`, uId).
-		Where("task_definitions.id = ?", tDId)
+    )`, userID).
+		Where("task_definitions.id = ?", taskDefinitionID)
 }
 
-func (pTR *PostgresTaskRepository) UpdateTaskDefinitionByUserAndId(
+func (repo *PostgresTaskRepository) UpdateTaskDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
-	newTD map[string]any,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
+	newTaskDefinition map[string]any,
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
-	result := pTR.filterTaskDefinitionByUserAndId(ctx, uId, tDId).
+	result := repo.filterTaskDefinitionByUserAndID(ctx, userID, taskDefinitionID).
 		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
 		Model(&tD).
-		Updates(newTD)
+		Updates(newTaskDefinition)
 	return tD, repository.CheckRowsAffected(result)
 }
 
-func (pTR *PostgresTaskRepository) SoftDeleteTaskDefinition(
+func (repo *PostgresTaskRepository) SoftDeleteTaskDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
-	result := pTR.filterTaskDefinitionByUserAndId(ctx, uId, tDId).
+	result := repo.filterTaskDefinitionByUserAndID(ctx, userID, taskDefinitionID).
 		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
 		Delete(&tD)
@@ -99,87 +100,88 @@ func (pTR *PostgresTaskRepository) SoftDeleteTaskDefinition(
 
 // TaskDependency
 
-func (pTR *PostgresTaskRepository) CreateTaskDependency(
+func (repo *PostgresTaskRepository) CreateTaskDependency(
 	ctx context.Context,
 	tDp task.TaskDependency,
 ) (task.TaskDependency, error) {
-	result := pTR.database.WithContext(ctx).Create(&tDp)
+	result := repo.database.WithContext(ctx).Create(&tDp)
 	return tDp, result.Error
 }
 
-func (pTR *PostgresTaskRepository) GetTaskDependencyByWorkflowDefinition(
+func (repo *PostgresTaskRepository) GetTaskDependenciesByWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]task.TaskDependency, error) {
 	var tDps []task.TaskDependency
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_definitions td_task ON td_task.id = task_dependencies.task_id").
 		Joins("JOIN task_definitions td_dep ON td_dep.id = task_dependencies.depend_on_task_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = td_task.workflow_definition_id AND workflow_definitions.id = td_dep.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
+		Where("workflows.user_id = ? AND workflow_definitions.id = ?", userID, workflowDefinitionID).
 		Find(&tDps)
 	return tDps, result.Error
 }
 
-func (pTR *PostgresTaskRepository) GetTaskDependencyByUserAndId(
+func (repo *PostgresTaskRepository) GetTaskDependencyByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpId uuid.UUID,
+	userID uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_definitions td_task ON td_task.id = task_dependencies.task_id").
 		Joins("JOIN task_definitions td_dep ON td_dep.id = task_dependencies.depend_on_task_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = td_task.workflow_definition_id AND workflow_definitions.id = td_dep.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND task_dependencies.id = ?", uId, tDpId).First(&tDp)
+		Where("workflows.user_id = ? AND task_dependencies.id = ?", userID, taskDependencyID).
+		First(&tDp)
 	return tDp, result.Error
 }
 
-func (pTR *PostgresTaskRepository) filterTaskDependencyByUserAndId(
+func (repo *PostgresTaskRepository) filterTaskDependencyByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpId uuid.UUID,
+	userID uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) *gorm.DB {
-	return pTR.database.WithContext(ctx).Where(`EXISTS (
+	return repo.database.WithContext(ctx).Where(`EXISTS (
       SELECT 1
       FROM task_definitions
       JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id
       JOIN workflows ON workflows.id = workflow_definitions.workflow_id
       WHERE task_definitions.id = task_dependencies.task_id AND workflows.user_id = ?
-    )`, uId).
+    )`, userID).
 		Where(`EXISTS (
       SELECT 1
       FROM task_definitions td_dep
       JOIN task_definitions td_task ON td_task.id = task_dependencies.task_id
       WHERE td_dep.id = task_dependencies.depend_on_task_id AND td_dep.workflow_definition_id = td_task.workflow_definition_id 
     )`).
-		Where("task_dependencies.id = ?", tDpId)
+		Where("task_dependencies.id = ?", taskDependencyID)
 }
 
-func (pTR *PostgresTaskRepository) UpdateTaskDependencyByUserAndId(
-	ctx context.Context, uId uuid.UUID,
-	tDpId uuid.UUID,
-	newTDp map[string]any,
+func (repo *PostgresTaskRepository) UpdateTaskDependencyByUserAndID(
+	ctx context.Context, userID uuid.UUID,
+	taskDependencyID uuid.UUID,
+	newTaskDependency map[string]any,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := pTR.filterTaskDependencyByUserAndId(ctx, uId, tDpId).
+	result := repo.filterTaskDependencyByUserAndID(ctx, userID, taskDependencyID).
 		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
 		Model(&tDp).
-		Updates(newTDp)
+		Updates(newTaskDependency)
 	return tDp, repository.CheckRowsAffected(result)
 }
 
-func (pTR *PostgresTaskRepository) SoftDeleteTaskDependency(
+func (repo *PostgresTaskRepository) SoftDeleteTaskDependency(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpId uuid.UUID,
+	userID uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := pTR.filterTaskDependencyByUserAndId(ctx, uId, tDpId).
+	result := repo.filterTaskDependencyByUserAndID(ctx, userID, taskDependencyID).
 		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
 		Clauses(clause.Returning{}).
 		Delete(&tDp)
@@ -188,139 +190,133 @@ func (pTR *PostgresTaskRepository) SoftDeleteTaskDependency(
 
 // TaskRun
 
-func (pTR *PostgresTaskRepository) CreateTaskRun(
+func (repo *PostgresTaskRepository) GetTaskRunsByWorkflowRun(
 	ctx context.Context,
-	tR task.TaskRun,
-) (task.TaskRun, error) {
-	result := pTR.database.WithContext(ctx).Create(&tR)
-	return tR, result.Error
-}
-
-func (pTR *PostgresTaskRepository) GetTaskRunByWorkflowRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunID uuid.UUID,
 ) ([]task.TaskRun, error) {
 	var tRs []task.TaskRun
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id").
 		Joins("JOIN workflow_runs ON workflow_runs.id = task_runs.workflow_run_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id AND workflow_definitions.id = workflow_runs.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).
+		Where("workflows.user_id = ? AND workflow_runs.id = ?", userID, workflowRunID).
 		Find(&tRs)
 	return tRs, result.Error
 }
 
-func (pTR *PostgresTaskRepository) GetTaskRunByUserAndId(
+func (repo *PostgresTaskRepository) GetTaskRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id").
 		Joins("JOIN workflow_runs ON workflow_runs.id = task_runs.workflow_run_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id AND workflow_definitions.id = workflow_runs.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND task_runs.id = ?", uId, tRId).First(&tR)
+		Where("workflows.user_id = ? AND task_runs.id = ?", userID, taskRunID).First(&tR)
 	return tR, result.Error
 }
 
-func (pTR *PostgresTaskRepository) filterTaskRunByUserAndId(
+func (repo *PostgresTaskRepository) filterTaskRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) *gorm.DB {
-	return pTR.database.WithContext(ctx).Where(`EXISTS (
+	return repo.database.WithContext(ctx).Where(`EXISTS (
       SELECT 1
       FROM workflow_runs
       JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id
       JOIN workflows ON workflows.id = workflow_definitions.workflow_id
       WHERE workflow_runs.id = task_runs.workflow_run_id AND workflows.user_id = ?
-    )`, uId).
+    )`, userID).
 		Where(`EXISTS (
       SELECT 1
       FROM workflow_runs
       JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id
       WHERE workflow_runs.id = task_runs.workflow_run_id AND workflow_runs.workflow_definition_id = task_definitions.workflow_definition_id 
     )`).
-		Where("task_runs.id = ?", tRId)
+		Where("task_runs.id = ?", taskRunID)
 }
 
-func (pTR *PostgresTaskRepository) UpdateTaskRunByUserAndId(
+func (repo *PostgresTaskRepository) UpdateTaskRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
-	newTR map[string]any,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
+	newTaskRun map[string]any,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
-	result := pTR.filterTaskRunByUserAndId(ctx, uId, tRId).
+	result := repo.filterTaskRunByUserAndID(ctx, userID, taskRunID).
 		Clauses(clause.Returning{}).
 		Model(&tR).
-		Updates(newTR)
+		Updates(newTaskRun)
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTR *PostgresTaskRepository) SoftDeleteTaskRun(
+func (repo *PostgresTaskRepository) SoftDeleteTaskRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
-	result := pTR.filterTaskRunByUserAndId(ctx, uId, tRId).Clauses(clause.Returning{}).Delete(&tR)
+	result := repo.filterTaskRunByUserAndID(ctx, userID, taskRunID).
+		Clauses(clause.Returning{}).
+		Delete(&tR)
 	return tR, repository.CheckRowsAffected(result)
 }
 
 // TaskAttempt
 
-func (pTR *PostgresTaskRepository) GetTaskAttemptByTaskRun(
+func (repo *PostgresTaskRepository) GetTaskAttemptsByTaskRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) ([]task.TaskAttempt, error) {
 	var tAs []task.TaskAttempt
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_runs ON task_runs.id = task_attempts.task_run_id").
 		Joins("JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id").
 		Joins("JOIN workflow_runs ON workflow_runs.id = task_runs.workflow_run_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id AND workflow_definitions.id = task_definitions.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND task_runs.id = ?", uId, tRId).
+		Where("workflows.user_id = ? AND task_runs.id = ?", userID, taskRunID).
 		Find(&tAs)
 	return tAs, result.Error
 }
 
-func (pTR *PostgresTaskRepository) GetTaskAttemptByUserAndId(
+func (repo *PostgresTaskRepository) GetTaskAttemptByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
+	userID uuid.UUID,
+	taskAttemptID uuid.UUID,
 ) (task.TaskAttempt, error) {
 	var tA task.TaskAttempt
-	result := pTR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_runs ON task_runs.id = task_attempts.task_run_id").
 		Joins("JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id").
 		Joins("JOIN workflow_runs ON workflow_runs.id = task_runs.workflow_run_id").
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id AND workflow_definitions.id = task_definitions.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND task_attempts.id = ?", uId, tAId).
+		Where("workflows.user_id = ? AND task_attempts.id = ?", userID, taskAttemptID).
 		First(&tA)
 	return tA, result.Error
 }
 
-func (pTR *PostgresTaskRepository) filterTaskAttemptByUserAndId(
+func (repo *PostgresTaskRepository) filterTaskAttemptByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
+	userID uuid.UUID,
+	taskAttemptID uuid.UUID,
 ) *gorm.DB {
-	return pTR.database.WithContext(ctx).Where(`EXISTS (
+	return repo.database.WithContext(ctx).Where(`EXISTS (
       SELECT 1
       FROM task_runs
       JOIN workflow_runs ON workflow_runs.id = task_runs.workflow_run_id
       JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id
       JOIN workflows ON workflows.id = workflow_definitions.workflow_id
       WHERE task_runs.id = task_attempts.task_run_id AND workflows.user_id = ?
-    )`, uId).
+    )`, userID).
 		Where(`EXISTS (
       SELECT 1
       FROM task_runs
@@ -328,16 +324,16 @@ func (pTR *PostgresTaskRepository) filterTaskAttemptByUserAndId(
       JOIN task_definitions ON task_definitions.id = task_runs.task_definition_id
       WHERE task_runs.id = task_attempts.task_run_id AND workflow_runs.workflow_definition_id = task_definitions.workflow_definition_id 
     )`).
-		Where("task_attempts.id = ?", tAId)
+		Where("task_attempts.id = ?", taskAttemptID)
 }
 
-func (pTR *PostgresTaskRepository) SoftDeleteTaskAttempt(
+func (repo *PostgresTaskRepository) SoftDeleteTaskAttempt(
 	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
+	userID uuid.UUID,
+	taskAttemptID uuid.UUID,
 ) (task.TaskAttempt, error) {
 	var tA task.TaskAttempt
-	result := pTR.filterTaskAttemptByUserAndId(ctx, uId, tAId).
+	result := repo.filterTaskAttemptByUserAndID(ctx, userID, taskAttemptID).
 		Clauses(clause.Returning{}).
 		Delete(&tA)
 	return tA, repository.CheckRowsAffected(result)
@@ -353,236 +349,238 @@ func NewPostgresTaskRepositoryInternal(database *gorm.DB) task.TaskRepositoryInt
 	return &PostgresTaskRepositoryInternal{database: database}
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskDefinitionById(
+func (repo *PostgresTaskRepositoryInternal) GetTaskDefinitionByID(
 	ctx context.Context,
-	tDId uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
-	result := pTRI.database.WithContext(ctx).Where("id = ?", tDId).First(&tD)
+	result := repo.database.WithContext(ctx).Where("id = ?", taskDefinitionID).First(&tD)
 	return tD, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskDefinitionsByWorkflowDefinition(
+func (repo *PostgresTaskRepositoryInternal) GetTaskDefinitionsByWorkflowDefinition(
 	ctx context.Context,
-	wDId uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]task.TaskDefinition, error) {
 	var tDs []task.TaskDefinition
-	result := pTRI.database.WithContext(ctx).
-		Where("workflow_definition_id = ?", wDId).
+	result := repo.database.WithContext(ctx).
+		Where("workflow_definition_id = ?", workflowDefinitionID).
 		Find(&tDs)
 	return tDs, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskDefinition(
+func (repo *PostgresTaskRepositoryInternal) HardDeleteTaskDefinition(
 	ctx context.Context,
-	tDId uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (task.TaskDefinition, error) {
 	var tD task.TaskDefinition
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ?", tDId).
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", taskDefinitionID).
 		Clauses(clause.Returning{}).
 		Unscoped().
 		Delete(&tD)
 	return tD, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependencyById(
+func (repo *PostgresTaskRepositoryInternal) GetTaskDependencyByID(
 	ctx context.Context,
-	tDpId uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := pTRI.database.WithContext(ctx).Where("id = ?", tDpId).First(&tDp)
+	result := repo.database.WithContext(ctx).Where("id = ?", taskDependencyID).First(&tDp)
 	return tDp, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefinitionId(
+func (repo *PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefinition(
 	ctx context.Context,
-	wDId uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]task.TaskDependency, error) {
 	var tDps []task.TaskDependency
-	result := pTRI.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN task_definitions ON task_definitions.id = task_dependencies.task_id").
-		Where("task_definitions.workflow_definition_id = ?", wDId).
+		Where("task_definitions.workflow_definition_id = ?", workflowDefinitionID).
 		Find(&tDps)
 	return tDps, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskDependency(
+func (repo *PostgresTaskRepositoryInternal) HardDeleteTaskDependency(
 	ctx context.Context,
-	tDpId uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ?", tDpId).
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", taskDependencyID).
 		Clauses(clause.Returning{}).
 		Unscoped().
 		Delete(&tDp)
 	return tDp, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskRunById(
+func (repo *PostgresTaskRepositoryInternal) CreateTaskRun(
 	ctx context.Context,
-	tRId uuid.UUID,
+	tR task.TaskRun,
+) (task.TaskRun, error) {
+	result := repo.database.WithContext(ctx).Create(&tR)
+	return tR, result.Error
+}
+
+func (repo *PostgresTaskRepositoryInternal) GetTaskRunByID(
+	ctx context.Context,
+	taskRunID uuid.UUID,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
-	result := pTRI.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Preload("TaskDefinition").
-		Where("id = ?", tRId).
+		Where("id = ?", taskRunID).
 		First(&tR)
 	return tR, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunId(
+func (repo *PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunID(
 	ctx context.Context,
-	wRId uuid.UUID,
+	workflowRunID uuid.UUID,
 ) ([]task.TaskRun, error) {
 	var tRs []task.TaskRun
-	result := pTRI.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Preload("TaskDefinition").
-		Where("workflow_run_id = ?", wRId).
+		Where("workflow_run_id = ?", workflowRunID).
 		Find(&tRs)
 	return tRs, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunById(
+func (repo *PostgresTaskRepositoryInternal) UpdateTaskRunByID(
 	ctx context.Context,
-	tRId uuid.UUID,
+	taskRunID uuid.UUID,
 	newTR map[string]any,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ?", tRId).
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", taskRunID).
 		Clauses(clause.Returning{}).
 		Model(&tR).
 		Updates(newTR)
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskRun(
+func (repo *PostgresTaskRepositoryInternal) HardDeleteTaskRun(
 	ctx context.Context,
-	tRId uuid.UUID,
+	taskRunID uuid.UUID,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ?", tRId).
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", taskRunID).
 		Clauses(clause.Returning{}).
 		Unscoped().
 		Delete(&tR)
 	return tR, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) TaskRunIdempotency(
+func (repo *PostgresTaskRepositoryInternal) TaskRunIdempotency(
 	ctx context.Context,
-	tRId uuid.UUID,
+	taskRunID uuid.UUID,
 	newStatus task.TaskRunStatus,
 ) (bool, error) {
 	var tR task.TaskRun
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ? AND status IN ?", tRId, task.ValidPreviousTaskRunStatus(newStatus)).
+	result := repo.database.WithContext(ctx).
+		Where("id = ? AND status IN ?", taskRunID, task.ValidPreviousTaskRunStatus(newStatus)).
 		Clauses(clause.Returning{}).
 		Model(&tR).
 		Updates(map[string]any{"status": newStatus})
 	return result.RowsAffected == 1, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskRunByIdAndStatus(
+func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskRuns(
 	ctx context.Context,
-	tRId uuid.UUID,
-	statuses []task.TaskRunStatus,
-	newTR map[string]any,
-) (task.TaskRun, bool, error) {
-	var tR task.TaskRun
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ? AND status IN ?", tRId, statuses).
-		Clauses(clause.Returning{}).
-		Model(&tR).
-		Updates(newTR)
-	if result.Error != nil {
-		return task.TaskRun{}, false, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return task.TaskRun{}, false, nil
-	}
-	return tR, true, nil
+	taskRunID uuid.UUID,
+) ([]task.TaskRun, error) {
+	var tRs []task.TaskRun
+	result := repo.database.WithContext(ctx).Raw(`
+		SELECT dep_tr.*
+    FROM task_runs tr
+    JOIN task_dependencies d ON d.task_id = tr.task_definition_id
+    JOIN task_runs dep_tr ON dep_tr.task_definition_id = d.depend_on_task_id AND dep_tr.workflow_run_id = tr.workflow_run_id
+    WHERE tr.id = ?;
+  `).Scan(&tRs)
+	return tRs, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) CreateTaskAttempt(
+func (repo *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	ctx context.Context,
 	tA task.TaskAttempt,
 ) (task.TaskAttempt, error) {
-	result := pTRI.database.WithContext(ctx).Create(&tA)
+	result := repo.database.WithContext(ctx).Create(&tA)
 	return tA, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) HardDeleteTaskAttempt(
+func (repo *PostgresTaskRepositoryInternal) HardDeleteTaskAttempt(
 	ctx context.Context,
-	tAId uuid.UUID,
+	taskAttemptID uuid.UUID,
 ) (task.TaskAttempt, error) {
 	var tA task.TaskAttempt
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ?", tAId).
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", taskAttemptID).
 		Clauses(clause.Returning{}).
 		Unscoped().
 		Delete(&tA)
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
+func (repo *PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
 	ctx context.Context,
-	tRId uuid.UUID,
+	taskRunID uuid.UUID,
 	attemptNumber uint,
 ) (task.TaskAttempt, error) {
 	var attempt task.TaskAttempt
-	result := pTRI.database.WithContext(ctx).
-		Where("task_run_id = ? AND attempt_number = ?", tRId, attemptNumber).
+	result := repo.database.WithContext(ctx).
+		Where("task_run_id = ? AND attempt_number = ?", taskRunID, attemptNumber).
 		First(&attempt)
 	return attempt, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) UpdateTaskAttemptById(
+func (repo *PostgresTaskRepositoryInternal) UpdateTaskAttemptByID(
 	ctx context.Context,
-	tAId uuid.UUID,
+	taskAttemptID uuid.UUID,
 	newTA map[string]any,
 ) (task.TaskAttempt, error) {
 	var tA task.TaskAttempt
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ?", tAId).
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", taskAttemptID).
 		Clauses(clause.Returning{}).
 		Model(&tA).
 		Updates(newTA)
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) TaskAttemptIdempotency(
+func (repo *PostgresTaskRepositoryInternal) TaskAttemptIdempotency(
 	ctx context.Context,
-	tAId uuid.UUID,
+	taskAttemptID uuid.UUID,
 	newStatus task.TaskAttemptStatus,
 ) (bool, error) {
 	var tA task.TaskAttempt
-	result := pTRI.database.WithContext(ctx).
-		Where("id = ? AND status IN ?", tAId, task.ValidPreviousTaskAttemptStatus(newStatus)).
+	result := repo.database.WithContext(ctx).
+		Where("id = ? AND status IN ?", taskAttemptID, task.ValidPreviousTaskAttemptStatus(newStatus)).
 		Clauses(clause.Returning{}).
 		Model(&tA).
 		Updates(map[string]any{"status": newStatus})
 	return result.RowsAffected == 1, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) TaskEventExists(
+func (repo *PostgresTaskRepositoryInternal) TaskEventExists(
 	ctx context.Context,
-	eventId uuid.UUID,
+	taskEventID uuid.UUID,
 ) (bool, error) {
 	var event task.TaskEvent
-	result := pTRI.database.WithContext(ctx).Select("id").Where("id = ?", eventId).First(&event)
+	result := repo.database.WithContext(ctx).Select("id").Where("id = ?", taskEventID).First(&event)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
 	return result.Error == nil, result.Error
 }
 
-func (pTRI *PostgresTaskRepositoryInternal) CreateTaskEvent(
+func (repo *PostgresTaskRepositoryInternal) CreateTaskEvent(
 	ctx context.Context,
-	event task.TaskEvent,
+	taskEvent task.TaskEvent,
 ) (task.TaskEvent, error) {
-	result := pTRI.database.WithContext(ctx).Create(&event)
-	return event, result.Error
+	result := repo.database.WithContext(ctx).Create(&taskEvent)
+	return taskEvent, result.Error
 }

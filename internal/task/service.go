@@ -4,42 +4,52 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Longseeyou/DuraFlow/internal/shared/mapper"
 	"github.com/Longseeyou/DuraFlow/internal/workflow"
 	"github.com/google/uuid"
 )
 
 type TaskService struct {
-	repository TaskRepository
-	wS         *workflow.WorkflowService
+	repository      TaskRepository
+	workflowService *workflow.WorkflowService
 }
 
 func NewTaskService(
-	taskRepository TaskRepository,
+	repository TaskRepository,
 	workflowService *workflow.WorkflowService,
 ) TaskService {
 	return TaskService{
-		repository: taskRepository,
-		wS:         workflowService,
+		repository:      repository,
+		workflowService: workflowService,
 	}
 }
 
 // TaskDefinition
 
-func (tS *TaskService) CreateTaskDefinition(
+func (s *TaskService) CreateTaskDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-	tDDto TaskDefinitionRequestDto,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
+	dto TaskDefinitionRequestDto,
 ) (TaskDefinitionResponseDto, error) {
-	_, err := tS.wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
+	if dto.Name == nil || dto.TaskType == nil || dto.Timeout == nil {
+		//TODO:
+	}
+
+	_, err := s.workflowService.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowDefinitionID)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
 
-	tD := taskDefinitionRequestDtoToModel(tDDto)
-	tD.WorkflowDefinitionID = wDId
+	tD := TaskDefinition{
+		WorkflowDefinitionID: workflowDefinitionID,
+		Name:                 *dto.Name,
+		Description:          mapper.StringValue(dto.Description),
+		TaskType:             *dto.TaskType,
+		Timeout:              *dto.Timeout,
+	}
 
-	tD, err = tS.repository.CreateTaskDefinition(ctx, tD)
+	tD, err = s.repository.CreateTaskDefinition(ctx, tD)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
@@ -47,30 +57,34 @@ func (tS *TaskService) CreateTaskDefinition(
 	return taskDefinitionModelToResponseDto(tD), nil
 }
 
-func (tS *TaskService) GetTaskDefinitionByWorkflowDefinition(
+func (s *TaskService) GetTaskDefinitionsByWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]TaskDefinitionResponseDto, error) {
-	tD, err := tS.repository.GetTaskDefinitionByWorkflowDefinition(ctx, uId, wDId)
+	tDs, err := s.repository.GetTaskDefinitionsByWorkflowDefinition(
+		ctx,
+		userID,
+		workflowDefinitionID,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	tDDto := []TaskDefinitionResponseDto{}
-	for _, v := range tD {
-		tDDto = append(tDDto, taskDefinitionModelToResponseDto(v))
+	tDDtos := make([]TaskDefinitionResponseDto, len(tDs))
+	for i, tD := range tDs {
+		tDDtos[i] = taskDefinitionModelToResponseDto(tD)
 	}
 
-	return tDDto, nil
+	return tDDtos, nil
 }
 
-func (tS *TaskService) getTaskDefinitionByUserAndId(
+func (s *TaskService) getTaskDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (TaskDefinition, error) {
-	tD, err := tS.repository.GetTaskDefinitionByUserAndId(ctx, uId, tDId)
+	tD, err := s.repository.GetTaskDefinitionByUserAndID(ctx, userID, taskDefinitionID)
 	if err != nil {
 		return TaskDefinition{}, err
 	}
@@ -78,12 +92,12 @@ func (tS *TaskService) getTaskDefinitionByUserAndId(
 	return tD, nil
 }
 
-func (tS *TaskService) GetTaskDefinitionByUserAndId(
+func (s *TaskService) GetTaskDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (TaskDefinitionResponseDto, error) {
-	tD, err := tS.getTaskDefinitionByUserAndId(ctx, uId, tDId)
+	tD, err := s.getTaskDefinitionByUserAndID(ctx, userID, taskDefinitionID)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
@@ -91,21 +105,30 @@ func (tS *TaskService) GetTaskDefinitionByUserAndId(
 	return taskDefinitionModelToResponseDto(tD), nil
 }
 
-func (tS *TaskService) UpdateTaskDefinitionById(
+func (s *TaskService) UpdateTaskDefinitionByID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
-	tDDto TaskDefinitionRequestDto,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
+	dto TaskDefinitionRequestDto,
 ) (TaskDefinitionResponseDto, error) {
-	newTD := map[string]any{}
-	if tDDto.Name != nil {
-		newTD["name"] = *tDDto.Name
-	}
-	if tDDto.Description != nil {
-		newTD["description"] = *tDDto.Description
+	if dto.Name == nil || dto.Description == nil {
+
 	}
 
-	tD, err := tS.repository.UpdateTaskDefinitionByUserAndId(ctx, uId, tDId, newTD)
+	newTaskDefinition := map[string]any{}
+	if dto.Name != nil {
+		newTaskDefinition["name"] = *dto.Name
+	}
+	if dto.Description != nil {
+		newTaskDefinition["description"] = *dto.Description
+	}
+
+	tD, err := s.repository.UpdateTaskDefinitionByUserAndID(
+		ctx,
+		userID,
+		taskDefinitionID,
+		newTaskDefinition,
+	)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
@@ -113,12 +136,12 @@ func (tS *TaskService) UpdateTaskDefinitionById(
 	return taskDefinitionModelToResponseDto(tD), nil
 }
 
-func (tS *TaskService) SoftDeleteTaskDefinition(
+func (s *TaskService) SoftDeleteTaskDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDId uuid.UUID,
+	userID uuid.UUID,
+	taskDefinitionID uuid.UUID,
 ) (TaskDefinitionResponseDto, error) {
-	tD, err := tS.repository.SoftDeleteTaskDefinition(ctx, uId, tDId)
+	tD, err := s.repository.SoftDeleteTaskDefinition(ctx, userID, taskDefinitionID)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
@@ -128,31 +151,31 @@ func (tS *TaskService) SoftDeleteTaskDefinition(
 
 // TaskDependency
 
-func (tS *TaskService) isTaskDependencyValid(
+func (s *TaskService) isTaskDependencyValid(
 	ctx context.Context,
-	uId uuid.UUID,
-	tId uuid.UUID,
-	dpTId uuid.UUID,
+	userID uuid.UUID,
+	taskID uuid.UUID,
+	dependOnTaskID uuid.UUID,
 ) (bool, error) {
-	t, err := tS.getTaskDefinitionByUserAndId(ctx, uId, tId)
+	t, err := s.getTaskDefinitionByUserAndID(ctx, userID, taskID)
 	if err != nil {
 		return false, err
 	}
 
-	dpT, err := tS.getTaskDefinitionByUserAndId(ctx, uId, dpTId)
+	dependOnT, err := s.getTaskDefinitionByUserAndID(ctx, userID, dependOnTaskID)
 	if err != nil {
 		return false, err
 	}
 
-	return t.WorkflowDefinitionID == dpT.WorkflowDefinitionID, nil
+	return t.WorkflowDefinitionID == dependOnT.WorkflowDefinitionID, nil
 }
 
-func (tS *TaskService) CreateTaskDependency(
+func (s *TaskService) CreateTaskDependency(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpDto TaskDependencyRequestDto,
+	userID uuid.UUID,
+	dto TaskDependencyRequestDto,
 ) (TaskDependencyResponseDto, error) {
-	valid, err := tS.isTaskDependencyValid(ctx, uId, tDpDto.TaskID, tDpDto.DependOnTaskID)
+	valid, err := s.isTaskDependencyValid(ctx, userID, dto.TaskID, dto.DependOnTaskID)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
@@ -160,9 +183,9 @@ func (tS *TaskService) CreateTaskDependency(
 		return TaskDependencyResponseDto{}, fmt.Errorf("")
 	}
 
-	tDp := taskDependencyRequestDtoToModel(tDpDto)
+	tDp := taskDependencyRequestDtoToModel(dto)
 
-	tDp, err = tS.repository.CreateTaskDependency(ctx, tDp)
+	tDp, err = s.repository.CreateTaskDependency(ctx, tDp)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
@@ -170,30 +193,34 @@ func (tS *TaskService) CreateTaskDependency(
 	return taskDependencyModelToResponseDto(tDp), nil
 }
 
-func (tS *TaskService) GetTaskDependencyByWorkflowDefinition(
+func (s *TaskService) GetTaskDependencyByWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]TaskDependencyResponseDto, error) {
-	tDp, err := tS.repository.GetTaskDependencyByWorkflowDefinition(ctx, uId, wDId)
+	tDps, err := s.repository.GetTaskDependenciesByWorkflowDefinition(
+		ctx,
+		userID,
+		workflowDefinitionID,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	tDpDto := []TaskDependencyResponseDto{}
-	for _, v := range tDp {
-		tDpDto = append(tDpDto, taskDependencyModelToResponseDto(v))
+	tDpDtos := make([]TaskDependencyResponseDto, len(tDps))
+	for i, tDp := range tDps {
+		tDpDtos[i] = taskDependencyModelToResponseDto(tDp)
 	}
 
-	return tDpDto, nil
+	return tDpDtos, nil
 }
 
-func (tS *TaskService) GetTaskDependencyByUserAndId(
+func (s *TaskService) GetTaskDependencyByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpId uuid.UUID,
+	userID uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) (TaskDependencyResponseDto, error) {
-	tDp, err := tS.repository.GetTaskDependencyByUserAndId(ctx, uId, tDpId)
+	tDp, err := s.repository.GetTaskDependencyByUserAndID(ctx, userID, taskDependencyID)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
@@ -201,13 +228,13 @@ func (tS *TaskService) GetTaskDependencyByUserAndId(
 	return taskDependencyModelToResponseDto(tDp), nil
 }
 
-func (tS *TaskService) UpdateTaskDependencyById(
+func (s *TaskService) UpdateTaskDependencyByID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpId uuid.UUID,
-	tDpDto TaskDependencyRequestDto,
+	userID uuid.UUID,
+	taskDependencyID uuid.UUID,
+	dto TaskDependencyRequestDto,
 ) (TaskDependencyResponseDto, error) {
-	valid, err := tS.isTaskDependencyValid(ctx, uId, tDpDto.TaskID, tDpDto.DependOnTaskID)
+	valid, err := s.isTaskDependencyValid(ctx, userID, dto.TaskID, dto.DependOnTaskID)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
@@ -215,23 +242,28 @@ func (tS *TaskService) UpdateTaskDependencyById(
 		return TaskDependencyResponseDto{}, fmt.Errorf("")
 	}
 
-	newTDp := map[string]any{}
-	newTDp["task_id"] = tDpDto.TaskID
-	newTDp["depend_on_task_id"] = tDpDto.DependOnTaskID
+	newTaskDependency := map[string]any{}
+	newTaskDependency["task_id"] = dto.TaskID
+	newTaskDependency["depend_on_task_id"] = dto.DependOnTaskID
 
-	tDp, err := tS.repository.UpdateTaskDependencyByUserAndId(ctx, uId, tDpId, newTDp)
+	tDp, err := s.repository.UpdateTaskDependencyByUserAndID(
+		ctx,
+		userID,
+		taskDependencyID,
+		newTaskDependency,
+	)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
 	return taskDependencyModelToResponseDto(tDp), nil
 }
 
-func (tS *TaskService) SoftDeleteTaskDependency(
+func (s *TaskService) SoftDeleteTaskDependency(
 	ctx context.Context,
-	uId uuid.UUID,
-	tDpId uuid.UUID,
+	userID uuid.UUID,
+	taskDependencyID uuid.UUID,
 ) (TaskDependencyResponseDto, error) {
-	tDp, err := tS.repository.SoftDeleteTaskDependency(ctx, uId, tDpId)
+	tDp, err := s.repository.SoftDeleteTaskDependency(ctx, userID, taskDependencyID)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
@@ -239,12 +271,16 @@ func (tS *TaskService) SoftDeleteTaskDependency(
 	return taskDependencyModelToResponseDto(tDp), nil
 }
 
-func (tS *TaskService) IsTaskDependencyDag(
+func (s *TaskService) IsTaskDependencyDag(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (bool, error) {
-	tDps, err := tS.repository.GetTaskDependencyByWorkflowDefinition(ctx, uId, wDId)
+	tDps, err := s.repository.GetTaskDependenciesByWorkflowDefinition(
+		ctx,
+		userID,
+		workflowDefinitionID,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -265,29 +301,29 @@ func (tS *TaskService) IsTaskDependencyDag(
 	mark := make(map[uuid.UUID]int, len(graph))
 
 	var visit func(uuid.UUID) error
-	visit = func(tDId uuid.UUID) error {
-		switch mark[tDId] {
+	visit = func(taskDefinitionID uuid.UUID) error {
+		switch mark[taskDefinitionID] {
 		case visiting:
 			return fmt.Errorf("graph has at least one cycle")
 		case visited:
 			return nil
 		}
 
-		mark[tDId] = visiting
+		mark[taskDefinitionID] = visiting
 
-		for _, nextTDId := range graph[tDId] {
-			err := visit(nextTDId)
+		for _, nextTaskDefinitionID := range graph[taskDefinitionID] {
+			err := visit(nextTaskDefinitionID)
 			if err != nil {
 				return err
 			}
 		}
 
-		mark[tDId] = visited
+		mark[taskDefinitionID] = visited
 		return nil
 	}
 
-	for tDId := range graph {
-		err = visit(tDId)
+	for taskDefinitionID := range graph {
+		err = visit(taskDefinitionID)
 		if err != nil {
 			return false, nil
 		}
@@ -298,58 +334,30 @@ func (tS *TaskService) IsTaskDependencyDag(
 
 // TaskRun
 
-// func (tS *TaskService) CreateTaskRun(
-// 	ctx context.Context,
-// 	uId uuid.UUID,
-// 	wRId uuid.UUID,
-// 	tDId uuid.UUID,
-// 	tRDto TaskRunRequestDto,
-// ) (TaskRunResponseDto, error) {
-// 	_, err := tS.wS.GetWorkflowRunByUserAndId(ctx, uId, wRId)
-// 	if err != nil {
-// 		return TaskRunResponseDto{}, err
-// 	}
-//
-// 	_, err = tS.GetTaskDefinitionByUserAndId(ctx, uId, tDId)
-// 	if err != nil {
-// 		return TaskRunResponseDto{}, err
-// 	}
-//
-// 	tR := taskRunRequestDtoToModel(tRDto)
-// 	tR.WorkflowRunID = wRId
-// 	tR.TaskDefinitionID = tDId
-//
-// 	tR, err = tS.repository.CreateTaskRun(ctx, tR)
-// 	if err != nil {
-// 		return TaskRunResponseDto{}, err
-// 	}
-// 	return taskRunModelToResponseDto(tR), nil
-// }
-
-func (tS *TaskService) GetTaskRunByWorkflowRun(
+func (s *TaskService) GetTaskRunByWorkflowRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunID uuid.UUID,
 ) ([]TaskRunResponseDto, error) {
-	tRs, err := tS.repository.GetTaskRunByWorkflowRun(ctx, uId, wRId)
+	tRs, err := s.repository.GetTaskRunsByWorkflowRun(ctx, userID, workflowRunID)
 	if err != nil {
 		return nil, err
 	}
 
-	dtos := []TaskRunResponseDto{}
-	for _, v := range tRs {
-		dtos = append(dtos, taskRunModelToResponseDto(v))
+	tRDtos := make([]TaskRunResponseDto, len(tRs))
+	for i, tR := range tRs {
+		tRDtos[i] = taskRunModelToResponseDto(tR)
 	}
 
-	return dtos, nil
+	return tRDtos, nil
 }
 
-func (tS *TaskService) GetTaskRunByUserAndId(
+func (s *TaskService) GetTaskRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) (TaskRunResponseDto, error) {
-	tR, err := tS.repository.GetTaskRunByUserAndId(ctx, uId, tRId)
+	tR, err := s.repository.GetTaskRunByUserAndID(ctx, userID, taskRunID)
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
@@ -357,21 +365,25 @@ func (tS *TaskService) GetTaskRunByUserAndId(
 	return taskRunModelToResponseDto(tR), nil
 }
 
-func (tS *TaskService) UpdateTaskRunByUserAndId(
+func (s *TaskService) UpdateTaskRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
-	tRDto TaskRunRequestDto,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
+	dto TaskRunRequestDto,
 ) (TaskRunResponseDto, error) {
-	newTR := map[string]any{}
-	if tRDto.MaxRetries != nil {
-		newTR["max_retries"] = *tRDto.MaxRetries
-	}
-	if tRDto.Input != nil {
-		newTR["input"] = *tRDto.Input
+	if dto.MaxRetries != nil || dto.Input != nil {
+		//TODO:
 	}
 
-	tR, err := tS.repository.UpdateTaskRunByUserAndId(ctx, uId, tRId, newTR)
+	newTaskRun := map[string]any{}
+	if dto.MaxRetries != nil {
+		newTaskRun["max_retries"] = *dto.MaxRetries
+	}
+	if dto.Input != nil {
+		newTaskRun["input"] = *dto.Input
+	}
+
+	tR, err := s.repository.UpdateTaskRunByUserAndID(ctx, userID, taskRunID, newTaskRun)
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
@@ -379,12 +391,12 @@ func (tS *TaskService) UpdateTaskRunByUserAndId(
 	return taskRunModelToResponseDto(tR), nil
 }
 
-func (tS *TaskService) SoftDeleteTaskRun(
+func (s *TaskService) SoftDeleteTaskRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) (TaskRunResponseDto, error) {
-	tR, err := tS.repository.SoftDeleteTaskRun(ctx, uId, tRId)
+	tR, err := s.repository.SoftDeleteTaskRun(ctx, userID, taskRunID)
 	if err != nil {
 		return TaskRunResponseDto{}, err
 	}
@@ -394,30 +406,30 @@ func (tS *TaskService) SoftDeleteTaskRun(
 
 // TaskAttempt
 
-func (tS *TaskService) GetTaskAttemptByTaskRun(
+func (s *TaskService) GetTaskAttemptByTaskRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	tRId uuid.UUID,
+	userID uuid.UUID,
+	taskRunID uuid.UUID,
 ) ([]TaskAttemptResponseDto, error) {
-	tAs, err := tS.repository.GetTaskAttemptByTaskRun(ctx, uId, tRId)
+	tAs, err := s.repository.GetTaskAttemptsByTaskRun(ctx, userID, taskRunID)
 	if err != nil {
 		return nil, err
 	}
 
-	dtos := []TaskAttemptResponseDto{}
-	for _, v := range tAs {
-		dtos = append(dtos, taskAttemptModelToResponseDto(v))
+	tADtos := make([]TaskAttemptResponseDto, len(tAs))
+	for i, tA := range tAs {
+		tADtos[i] = taskAttemptModelToResponseDto(tA)
 	}
 
-	return dtos, nil
+	return tADtos, nil
 }
 
-func (tS *TaskService) GetTaskAttemptByUserAndId(
+func (s *TaskService) GetTaskAttemptByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
+	userID uuid.UUID,
+	taskAttemptID uuid.UUID,
 ) (TaskAttemptResponseDto, error) {
-	tA, err := tS.repository.GetTaskAttemptByUserAndId(ctx, uId, tAId)
+	tA, err := s.repository.GetTaskAttemptByUserAndID(ctx, userID, taskAttemptID)
 	if err != nil {
 		return TaskAttemptResponseDto{}, err
 	}
@@ -425,12 +437,12 @@ func (tS *TaskService) GetTaskAttemptByUserAndId(
 	return taskAttemptModelToResponseDto(tA), nil
 }
 
-func (tS *TaskService) SoftDeleteTaskAttempt(
+func (s *TaskService) SoftDeleteTaskAttempt(
 	ctx context.Context,
-	uId uuid.UUID,
-	tAId uuid.UUID,
+	userID uuid.UUID,
+	taskAttemptID uuid.UUID,
 ) (TaskAttemptResponseDto, error) {
-	tA, err := tS.repository.SoftDeleteTaskAttempt(ctx, uId, tAId)
+	tA, err := s.repository.SoftDeleteTaskAttempt(ctx, userID, taskAttemptID)
 	if err != nil {
 		return TaskAttemptResponseDto{}, err
 	}
@@ -452,66 +464,66 @@ func NewTaskServiceInternal(
 	}
 }
 
-func (tS *TaskServiceInternal) UpdateTaskRunById(
-	ctx context.Context,
-	tRId uuid.UUID,
-	tRDto TaskRunInternalDto,
-) (TaskRun, error) {
-	newTR, err := taskRunInternalDtoToMap(tRDto)
-	if err != nil {
-		return TaskRun{}, err
-	}
+// func (s *TaskServiceInternal) UpdateTaskRunByID(
+// 	ctx context.Context,
+// 	taskRunID uuid.UUID,
+// 	dto TaskRunInternalDto,
+// ) (TaskRun, error) {
+// 	newTaskRun, err := taskRunInternalDtoToMap(dto)
+// 	if err != nil {
+// 		return TaskRun{}, err
+// 	}
+//
+// 	tR, err := s.repository.UpdateTaskRunByID(ctx, taskRunID, newTaskRun)
+// 	if err != nil {
+// 		return TaskRun{}, err
+// 	}
+//
+// 	return tR, nil
+// }
 
-	tR, err := tS.repository.UpdateTaskRunById(ctx, tRId, newTR)
-	if err != nil {
-		return TaskRun{}, err
-	}
+// func (s *TaskServiceInternal) CreateTaskAttempt(
+// 	ctx context.Context,
+// 	taskRunID uuid.UUID,
+// 	dto TaskAttemptInternalDto,
+// ) (TaskAttempt, error) {
+// 	tA := taskAttemptInternalDtoToModel(dto)
+// 	tA.TaskRunID = taskRunID
+//
+// 	tA, err := s.repository.CreateTaskAttempt(ctx, tA)
+// 	if err != nil {
+// 		return TaskAttempt{}, err
+// 	}
+//
+// 	return tA, nil
+// }
 
-	return tR, nil
-}
-
-func (tS *TaskServiceInternal) CreateTaskAttempt(
-	ctx context.Context,
-	tRId uuid.UUID,
-	tADto TaskAttemptInternalDto,
-) (TaskAttempt, error) {
-	tA := taskAttemptInternalDtoToModel(tADto)
-	tA.TaskRunID = tRId
-
-	tA, err := tS.repository.CreateTaskAttempt(ctx, tA)
-	if err != nil {
-		return TaskAttempt{}, err
-	}
-
-	return tA, nil
-}
-
-func (tS *TaskServiceInternal) UpdateTaskAttemptById(
-	ctx context.Context,
-	tAId uuid.UUID,
-	tADto TaskAttemptInternalDto,
-) (TaskAttemptResponseDto, error) {
-	newTA := map[string]any{}
-	if tADto.WorkerID != nil {
-		newTA["worker_id"] = *tADto.WorkerID
-	}
-	if tADto.Status != nil {
-		newTA["status"] = *tADto.Status
-	}
-	if tADto.StartedAt != nil {
-		newTA["started_at"] = *tADto.StartedAt
-	}
-	if tADto.EndedAt != nil {
-		newTA["ended_at"] = *tADto.EndedAt
-	}
-	if tADto.Log != nil {
-		newTA["log"] = tADto.Log
-	}
-
-	tA, err := tS.repository.UpdateTaskAttemptById(ctx, tAId, newTA)
-	if err != nil {
-		return TaskAttemptResponseDto{}, err
-	}
-
-	return taskAttemptModelToResponseDto(tA), nil
-}
+// func (tS *TaskServiceInternal) UpdateTaskAttemptByID(
+// 	ctx context.Context,
+// 	taskAttemptID uuid.UUID,
+// 	dto TaskAttemptInternalDto,
+// ) (TaskAttemptResponseDto, error) {
+// 	newTaskAttempt := map[string]any{}
+// 	if tADto.WorkerID != nil {
+// 		newTA["worker_id"] = *tADto.WorkerID
+// 	}
+// 	if tADto.Status != nil {
+// 		newTA["status"] = *tADto.Status
+// 	}
+// 	if tADto.StartedAt != nil {
+// 		newTA["started_at"] = *tADto.StartedAt
+// 	}
+// 	if tADto.EndedAt != nil {
+// 		newTA["ended_at"] = *tADto.EndedAt
+// 	}
+// 	if tADto.Log != nil {
+// 		newTA["log"] = tADto.Log
+// 	}
+//
+// 	tA, err := tS.repository.UpdateTaskAttemptByID(ctx, taskAttemptID, newTA)
+// 	if err != nil {
+// 		return TaskAttemptResponseDto{}, err
+// 	}
+//
+// 	return taskAttemptModelToResponseDto(tA), nil
+// }

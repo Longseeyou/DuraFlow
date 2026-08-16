@@ -16,9 +16,8 @@ type TaskService interface {
 }
 
 type WorkflowService struct {
-	repository         WorkflowRepository
-	repositoryInternal WorkflowRepositoryInternal
-	taskService        TaskService
+	repository  WorkflowRepository
+	taskService TaskService
 }
 
 func NewWorkflowService(
@@ -27,9 +26,8 @@ func NewWorkflowService(
 	taskService TaskService,
 ) *WorkflowService {
 	return &WorkflowService{
-		repository:         repository,
-		repositoryInternal: repositoryInternal,
-		taskService:        taskService,
+		repository:  repository,
+		taskService: taskService,
 	}
 }
 
@@ -60,7 +58,7 @@ func (s *WorkflowService) GetWorkflowByUser(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]WorkflowResponseDto, error) {
-	ws, err := s.repository.GetWorkflowByUser(ctx, userID)
+	ws, err := s.repository.GetWorkflowsByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +90,7 @@ func (s *WorkflowService) UpdateWorkflowByUserAndID(
 	workflowID uuid.UUID,
 	dto WorkflowRequestDto,
 ) (WorkflowResponseDto, error) {
-	if dto.Name == nil && dto.Description == nil {
+	if dto.Name == nil || dto.Description == nil {
 		//TODO:
 		return WorkflowResponseDto{}, fmt.Errorf("")
 	}
@@ -154,7 +152,7 @@ func (s *WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(
 	userID uuid.UUID,
 	workflowID uuid.UUID,
 ) ([]WorkflowDefinitionResponseDto, error) {
-	wDs, err := s.repository.GetWorkflowDefinitionByWorkflow(ctx, userID, workflowID)
+	wDs, err := s.repository.GetWorkflowDefinitionsByWorkflow(ctx, userID, workflowID)
 	if err != nil {
 		return nil, err
 	}
@@ -198,8 +196,9 @@ func (s *WorkflowService) UpdateWorkflowDefinitionByUserAndID(
 
 			}
 		} else {
-			count, err := s.repositoryInternal.CountActiveWorkflowRunByWorkflowDefinition(
+			count, err := s.repository.CountActiveWorkflowRunByUserAndWorkflowDefinition(
 				ctx,
+				userID,
 				workflowDefinitionID,
 			)
 			if err != nil {
@@ -246,7 +245,7 @@ func (s *WorkflowService) GetWorkflowRunByWorkflowDefinition(
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
 ) ([]WorkflowRunResponseDto, error) {
-	wRs, err := s.repository.GetWorkflowRunByWorkflowDefinition(
+	wRs, err := s.repository.GetWorkflowRunsByWorkflowDefinition(
 		ctx,
 		userID,
 		workflowDefinitionID,
@@ -279,7 +278,7 @@ func (s *WorkflowService) GetWorkflowRunByUserAndID(
 	return workfloworkflowRununModelToResponseDto(wR), nil
 }
 
-func (s *WorkflowService) UpdateWorkflowRunByUserAndId(
+func (s *WorkflowService) UpdateWorkflowRunByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowRunID uuid.UUID,
