@@ -262,25 +262,27 @@ func (tS *TaskService) IsTaskDependencyDag(
 		visited
 	)
 
-	state := make(map[uuid.UUID]int, len(graph))
+	mark := make(map[uuid.UUID]int, len(graph))
 
 	var visit func(uuid.UUID) error
 	visit = func(tDId uuid.UUID) error {
-		switch state[tDId] {
+		switch mark[tDId] {
 		case visiting:
-			return fmt.Errorf("")
+			return fmt.Errorf("graph has at least one cycle")
 		case visited:
 			return nil
 		}
 
-		state[tDId] = visiting
+		mark[tDId] = visiting
+
 		for _, nextTDId := range graph[tDId] {
 			err := visit(nextTDId)
 			if err != nil {
 				return err
 			}
 		}
-		state[tDId] = visited
+
+		mark[tDId] = visited
 		return nil
 	}
 
@@ -296,33 +298,33 @@ func (tS *TaskService) IsTaskDependencyDag(
 
 // TaskRun
 
-func (tS *TaskService) CreateTaskRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
-	tDId uuid.UUID,
-	tRDto TaskRunRequestDto,
-) (TaskRunResponseDto, error) {
-	_, err := tS.wS.GetWorkflowRunByUserAndId(ctx, uId, wRId)
-	if err != nil {
-		return TaskRunResponseDto{}, err
-	}
-
-	_, err = tS.GetTaskDefinitionByUserAndId(ctx, uId, tDId)
-	if err != nil {
-		return TaskRunResponseDto{}, err
-	}
-
-	tR := taskRunRequestDtoToModel(tRDto)
-	tR.WorkflowRunID = wRId
-	tR.TaskDefinitionID = tDId
-
-	tR, err = tS.repository.CreateTaskRun(ctx, tR)
-	if err != nil {
-		return TaskRunResponseDto{}, err
-	}
-	return taskRunModelToResponseDto(tR), nil
-}
+// func (tS *TaskService) CreateTaskRun(
+// 	ctx context.Context,
+// 	uId uuid.UUID,
+// 	wRId uuid.UUID,
+// 	tDId uuid.UUID,
+// 	tRDto TaskRunRequestDto,
+// ) (TaskRunResponseDto, error) {
+// 	_, err := tS.wS.GetWorkflowRunByUserAndId(ctx, uId, wRId)
+// 	if err != nil {
+// 		return TaskRunResponseDto{}, err
+// 	}
+//
+// 	_, err = tS.GetTaskDefinitionByUserAndId(ctx, uId, tDId)
+// 	if err != nil {
+// 		return TaskRunResponseDto{}, err
+// 	}
+//
+// 	tR := taskRunRequestDtoToModel(tRDto)
+// 	tR.WorkflowRunID = wRId
+// 	tR.TaskDefinitionID = tDId
+//
+// 	tR, err = tS.repository.CreateTaskRun(ctx, tR)
+// 	if err != nil {
+// 		return TaskRunResponseDto{}, err
+// 	}
+// 	return taskRunModelToResponseDto(tR), nil
+// }
 
 func (tS *TaskService) GetTaskRunByWorkflowRun(
 	ctx context.Context,

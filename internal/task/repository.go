@@ -64,7 +64,7 @@ type TaskDependencyStore interface {
 }
 
 type TaskRunStore interface {
-	CreateTaskRun(ctx context.Context, tR TaskRun) (TaskRun, error)
+	// CreateTaskRun(ctx context.Context, tR TaskRun) (TaskRun, error)
 	GetTaskRunByWorkflowRun(ctx context.Context, uId uuid.UUID, wRId uuid.UUID) ([]TaskRun, error)
 	GetTaskRunByUserAndId(
 		ctx context.Context,
@@ -113,7 +113,7 @@ type TaskDefinitionStoreInternal interface {
 
 type TaskDependencyStoreInternal interface {
 	GetTaskDependencyById(ctx context.Context, tDpId uuid.UUID) (TaskDependency, error)
-	GetTaskDependenciesByWorkflowDefinitionId(
+	GetTaskDependenciesByWorkflowDefinition(
 		ctx context.Context,
 		wDId uuid.UUID,
 	) ([]TaskDependency, error)
@@ -121,8 +121,9 @@ type TaskDependencyStoreInternal interface {
 }
 
 type TaskRunStoreInternal interface {
+	CreateTaskRun(ctx context.Context, tR TaskRun) (TaskRun, error)
 	GetTaskRunById(ctx context.Context, tRId uuid.UUID) (TaskRun, error)
-	GetTaskRunsByWorkflowRunId(ctx context.Context, wRId uuid.UUID) ([]TaskRun, error)
+	// GetTaskRunsByWorkflowRun(ctx context.Context, wRId uuid.UUID) ([]TaskRun, error)
 	UpdateTaskRunById(
 		ctx context.Context,
 		tRId uuid.UUID,
@@ -130,12 +131,8 @@ type TaskRunStoreInternal interface {
 	) (TaskRun, error)
 	HardDeleteTaskRun(ctx context.Context, tRId uuid.UUID) (TaskRun, error)
 	TaskRunIdempotency(ctx context.Context, tRId uuid.UUID, newStatus TaskRunStatus) (bool, error)
-	UpdateTaskRunByIdAndStatus(
-		ctx context.Context,
-		tRId uuid.UUID,
-		statuses []TaskRunStatus,
-		newTR map[string]any,
-	) (TaskRun, bool, error)
+
+	GetPredecessorTaskRuns(ctx context.Context, tRId uuid.UUID) ([]TaskRun, error)
 }
 
 type TaskAttemptStoreInternal interface {

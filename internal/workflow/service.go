@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -11,8 +12,9 @@ type TaskService interface {
 }
 
 type WorkflowService struct {
-	repository WorkflowRepository
-	tS         TaskService
+	repository         WorkflowRepository
+	repositoryInternal WorkflowRepositoryInternal
+	tS                 TaskService
 }
 
 func NewWorkflowService(
@@ -176,6 +178,19 @@ func (wS *WorkflowService) UpdateWorkflowDefinitionByUserAndId(
 			if !valid {
 
 			}
+		} else {
+			count, err := wS.repositoryInternal.CountActiveWorkflowRunByWorkflowDefinition(
+				ctx,
+				wDId,
+			)
+			if err != nil {
+				return WorkflowDefinitionResponseDto{}, err
+			}
+			if count != 0 {
+				// TODO:
+				return WorkflowDefinitionResponseDto{}, fmt.Errorf("")
+			}
+
 		}
 	}
 
@@ -202,26 +217,26 @@ func (wS *WorkflowService) SoftDeleteWorkflowDefinition(
 
 // WorkflowRun
 
-func (wS *WorkflowService) CreateWorkflowRun(
-	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-) (WorkflowRunResponseDto, error) {
-	_, err := wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
-	if err != nil {
-		return WorkflowRunResponseDto{}, err
-	}
-
-	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: WORKFLOW_RUN_PENDING}
-	wR.WorkflowDefinitionID = wDId
-
-	wR, err = wS.repository.CreateWorkflowRun(ctx, wR)
-	if err != nil {
-		return WorkflowRunResponseDto{}, err
-	}
-
-	return workflowRunModelToResponseDto(wR), nil
-}
+// func (wS *WorkflowService) CreateWorkflowRun(
+// 	ctx context.Context,
+// 	uId uuid.UUID,
+// 	wDId uuid.UUID,
+// ) (WorkflowRunResponseDto, error) {
+// 	_, err := wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
+// 	if err != nil {
+// 		return WorkflowRunResponseDto{}, err
+// 	}
+//
+// 	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: WORKFLOW_RUN_PENDING}
+// 	wR.WorkflowDefinitionID = wDId
+//
+// 	wR, err = wS.repository.CreateWorkflowRun(ctx, wR)
+// 	if err != nil {
+// 		return WorkflowRunResponseDto{}, err
+// 	}
+//
+// 	return workflowRunModelToResponseDto(wR), nil
+// }
 
 func (wS *WorkflowService) GetWorkflowRunByWorkflowDefinition(
 	ctx context.Context,

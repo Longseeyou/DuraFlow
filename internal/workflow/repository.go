@@ -51,7 +51,7 @@ type WorkflowDefinitionStore interface {
 }
 
 type WorkflowRunStore interface {
-	CreateWorkflowRun(ctx context.Context, wR WorkflowRun) (WorkflowRun, error)
+	// CreateWorkflowRun(ctx context.Context, wR WorkflowRun) (WorkflowRun, error)
 	GetWorkflowRunByWorkflowDefinition(
 		ctx context.Context,
 		uId uuid.UUID,
@@ -88,6 +88,7 @@ type WorkflowDefinitionStoreInternal interface {
 }
 
 type WorkflowRunStoreInternal interface {
+	CreateWorkflowRun(ctx context.Context, wR WorkflowRun) (WorkflowRun, error)
 	GetWorkflowRunById(ctx context.Context, wRId uuid.UUID) (WorkflowRun, error)
 	UpdateWorkflowRunById(
 		ctx context.Context,
@@ -95,10 +96,12 @@ type WorkflowRunStoreInternal interface {
 		newWR map[string]any,
 	) (WorkflowRun, error)
 	HardDeleteWorkflowRun(ctx context.Context, wRId uuid.UUID) (WorkflowRun, error)
-	UpdateWorkflowRunByIdAndStatusInternal(
-		ctx context.Context,
-		wRId uuid.UUID,
-		statuses []WorkflowRunStatus,
-		newWR map[string]any,
-	) (WorkflowRun, bool, error)
+	// UpdateWorkflowRunByIdAndStatusInternal(
+	// 	ctx context.Context,
+	// 	wRId uuid.UUID,
+	// 	statuses []WorkflowRunStatus,
+	// 	newWR map[string]any,
+	// ) (WorkflowRun, bool, error)
+
+	CountActiveWorkflowRunByWorkflowDefinition(ctx context.Context, wDId uuid.UUID) (int64, error)
 }
