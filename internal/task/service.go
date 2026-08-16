@@ -2,25 +2,27 @@ package task
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/Longseeyou/DuraFlow/internal/shared/custom_error"
 	"github.com/Longseeyou/DuraFlow/internal/shared/mapper"
-	"github.com/Longseeyou/DuraFlow/internal/workflow"
 	"github.com/google/uuid"
 )
 
+var (
+	ErrWorkflowDefinitionNotEditing = errors.New("workflow definition is not in editing status")
+)
+
 type TaskService struct {
-	repository      TaskRepository
-	workflowService *workflow.WorkflowService
+	repository TaskRepository
 }
 
 func NewTaskService(
 	repository TaskRepository,
-	workflowService *workflow.WorkflowService,
 ) TaskService {
 	return TaskService{
-		repository:      repository,
-		workflowService: workflowService,
+		repository: repository,
 	}
 }
 
@@ -33,12 +35,7 @@ func (s *TaskService) CreateTaskDefinition(
 	dto TaskDefinitionRequestDto,
 ) (TaskDefinitionResponseDto, error) {
 	if dto.Name == nil || dto.TaskType == nil || dto.Timeout == nil {
-		//TODO:
-	}
-
-	_, err := s.workflowService.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowDefinitionID)
-	if err != nil {
-		return TaskDefinitionResponseDto{}, err
+		return TaskDefinitionResponseDto{}, custom_error.ErrCreateInvalidRequest
 	}
 
 	tD := TaskDefinition{
@@ -49,7 +46,7 @@ func (s *TaskService) CreateTaskDefinition(
 		Timeout:              *dto.Timeout,
 	}
 
-	tD, err = s.repository.CreateTaskDefinition(ctx, tD)
+	tD, err := s.repository.CreateTaskDefinition(ctx, userID, workflowDefinitionID, tD)
 	if err != nil {
 		return TaskDefinitionResponseDto{}, err
 	}
@@ -111,16 +108,16 @@ func (s *TaskService) UpdateTaskDefinitionByID(
 	taskDefinitionID uuid.UUID,
 	dto TaskDefinitionRequestDto,
 ) (TaskDefinitionResponseDto, error) {
-	if dto.Name == nil || dto.Description == nil {
-
-	}
-
 	newTaskDefinition := map[string]any{}
 	if dto.Name != nil {
 		newTaskDefinition["name"] = *dto.Name
 	}
 	if dto.Description != nil {
 		newTaskDefinition["description"] = *dto.Description
+	}
+
+	if len(newTaskDefinition) == 0 {
+		return TaskDefinitionResponseDto{}, custom_error.ErrUpdateInvalidRequest
 	}
 
 	tD, err := s.repository.UpdateTaskDefinitionByUserAndID(
@@ -234,11 +231,11 @@ func (s *TaskService) UpdateTaskDependencyByID(
 	taskDependencyID uuid.UUID,
 	dto TaskDependencyRequestDto,
 ) (TaskDependencyResponseDto, error) {
-	valid, err := s.isTaskDependencyValid(ctx, userID, dto.TaskID, dto.DependOnTaskID)
+	ok, err := s.isTaskDependencyValid(ctx, userID, dto.TaskID, dto.DependOnTaskID)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
-	if !valid {
+	if !ok {
 		return TaskDependencyResponseDto{}, fmt.Errorf("")
 	}
 
@@ -371,16 +368,16 @@ func (s *TaskService) UpdateTaskRunByUserAndID(
 	taskRunID uuid.UUID,
 	dto TaskRunRequestDto,
 ) (TaskRunResponseDto, error) {
-	if dto.MaxRetries != nil || dto.Input != nil {
-		//TODO:
-	}
-
 	newTaskRun := map[string]any{}
 	if dto.MaxRetries != nil {
 		newTaskRun["max_retries"] = *dto.MaxRetries
 	}
 	if dto.Input != nil {
 		newTaskRun["input"] = *dto.Input
+	}
+
+	if len(newTaskRun) == 0 {
+		return TaskRunResponseDto{}, custom_error.ErrUpdateInvalidRequest
 	}
 
 	tR, err := s.repository.UpdateTaskRunByUserAndID(ctx, userID, taskRunID, newTaskRun)

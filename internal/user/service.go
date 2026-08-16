@@ -4,84 +4,131 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Longseeyou/DuraFlow/internal/shared/custom_error"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var ErrPasswordsDoNotMatch = errors.New("password and retyped password do not match")
 
 type UserService struct {
-	Repository UserRepository
+	repository UserRepository
 }
 
-func (userService UserService) CreateUser(ctx context.Context, u CreateUserRequestDto) (UserResponseDto, error) {
-	if u.Password != u.RetypedPassword {
+func NewUserService(repository UserRepository) *UserService {
+	return &UserService{
+		repository: repository,
+	}
+}
+
+func (s *UserService) CreateUser(
+	ctx context.Context,
+	dto CreateUserRequestDto,
+) (UserResponseDto, error) {
+	if dto.Password != dto.RetypedPassword {
 		return UserResponseDto{}, ErrPasswordsDoNotMatch
 	}
 
-	userModel := CreateUserRequestDtoToUser(u)
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return UserResponseDto{}, err
+	u := User{
+		Name:     dto.Name,
+		Email:    dto.Email,
+		Role:     USER,
+		IsActive: true,
 	}
-	userModel.PasswordHash = string(passwordHash)
 
-	userModel, err = userService.Repository.CreateUser(ctx, userModel)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return UserResponseDto{}, err
 	}
-	return UserToUserResponseDto(userModel), nil
+	u.PasswordHash = string(passwordHash)
+
+	u, err = s.repository.CreateUser(ctx, u)
+	if err != nil {
+		return UserResponseDto{}, err
+	}
+
+	return UserToUserResponseDto(u), nil
 }
 
-func (userService UserService) SoftDeleteUser(ctx context.Context, u DeleteUserRequestDto) (UserResponseDto, error) {
-	userModel := DeleteUserRequestDtoToUser(u)
-	userModel, err := userService.Repository.SoftDeleteUser(ctx, userModel)
+func (s *UserService) GetUserByID(
+	ctx context.Context,
+	userID uuid.UUID,
+) (UserResponseDto, error) {
+	u, err := s.repository.GetUserByID(ctx, userID)
 	if err != nil {
 		return UserResponseDto{}, err
 	}
-	return UserToUserResponseDto(userModel), nil
+
+	return UserToUserResponseDto(u), nil
 }
 
-func (userService UserService) HardDeleteUser(ctx context.Context, u DeleteUserRequestDto) (UserResponseDto, error) {
-	userModel := DeleteUserRequestDtoToUser(u)
-	userModel, err := userService.Repository.HardDeleteUser(ctx, userModel)
-	if err != nil {
-		return UserResponseDto{}, err
+func (s *UserService) UpdateUserByID(
+	ctx context.Context,
+	userID uuid.UUID,
+	dto UpdateUserRequestDto,
+) (UserResponseDto, error) {
+	newUser := map[string]any{}
+	if dto.Name != nil {
+		newUser["name"] = *dto.Name
 	}
-	return UserToUserResponseDto(userModel), nil
-}
-
-func (userService UserService) RestoreUser(ctx context.Context, u UserRequestDto) (UserResponseDto, error) {
-	userModel := UserRequestDtoToUser(u)
-	userModel, err := userService.Repository.RestoreUser(ctx, userModel)
-	if err != nil {
-		return UserResponseDto{}, err
+	if dto.Email != nil {
+		newUser["email"] = *dto.Email
 	}
-	return UserToUserResponseDto(userModel), nil
-}
-
-func (userService UserService) GetUser(ctx context.Context, u UserRequestDto) (UserResponseDto, error) {
-	userModel := UserRequestDtoToUser(u)
-	userModel, err := userService.Repository.GetUser(ctx, userModel)
-	if err != nil {
-		return UserResponseDto{}, err
-	}
-	return UserToUserResponseDto(userModel), nil
-}
-
-func (userService UserService) UpdateUser(ctx context.Context, u UpdateUserRequestDto) (UserResponseDto, error) {
-	userModel := UpdateUserRequestDtoToUser(u)
-	if u.Password != nil {
-		passwordHash, err := bcrypt.GenerateFromPassword([]byte(*u.Password), bcrypt.DefaultCost)
+	if dto.Password != nil {
+		passwordHash, err := bcrypt.GenerateFromPassword([]byte(*dto.Password), bcrypt.DefaultCost)
 		if err != nil {
 			return UserResponseDto{}, err
 		}
-		hashedPassword := string(passwordHash)
-		u.Password = &hashedPassword
+		newUser["password_hash"] = string(passwordHash)
 	}
-	newUser := UpdateUserRequestDtoToMap(u)
-	userModel, err := userService.Repository.UpdateUser(ctx, userModel, newUser)
+	if dto.Role != nil {
+		newUser["role"] = *dto.Role
+	}
+
+	if len(newUser) == 0 {
+		return UserResponseDto{}, custom_error.ErrUpdateInvalidRequest
+	}
+
+	u, err := s.repository.UpdateUserByID(ctx, userID, newUser)
 	if err != nil {
 		return UserResponseDto{}, err
 	}
-	return UserToUserResponseDto(userModel), nil
+
+	return UserToUserResponseDto(u), nil
+}
+
+func (s *UserService) SoftDeleteUser(
+	ctx context.Context,
+	userID uuid.UUID,
+) (UserResponseDto, error) {
+	u, err := s.repository.SoftDeleteUser(ctx, userID)
+	if err != nil {
+		return UserResponseDto{}, err
+	}
+
+	return UserToUserResponseDto(u), nil
+}
+
+func (s *UserService) HardDeleteUser(
+	ctx context.Context,
+	userID uuid.UUID,
+) (UserResponseDto, error) {
+	u, err := s.repository.HardDeleteUser(ctx, userID)
+	if err != nil {
+		return UserResponseDto{}, err
+	}
+
+	return UserToUserResponseDto(u), nil
+}
+
+func (s *UserService) RestoreUser(
+	ctx context.Context,
+	userID uuid.UUID,
+) (UserResponseDto, error) {
+	u, err := s.repository.RestoreUser(ctx, userID)
+	if err != nil {
+		return UserResponseDto{}, err
+	}
+
+	return UserToUserResponseDto(u), nil
 }

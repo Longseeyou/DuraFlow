@@ -14,7 +14,12 @@ type TaskRepository interface {
 }
 
 type TaskDefinitionStore interface {
-	CreateTaskDefinition(ctx context.Context, tD TaskDefinition) (TaskDefinition, error)
+	CreateTaskDefinition(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
+		tD TaskDefinition,
+	) (TaskDefinition, error)
 	GetTaskDefinitionsByWorkflowDefinition(
 		ctx context.Context,
 		userID uuid.UUID,
@@ -127,7 +132,10 @@ type TaskDependencyStoreInternal interface {
 		ctx context.Context,
 		workflowDefinitionID uuid.UUID,
 	) ([]TaskDependency, error)
-	HardDeleteTaskDependency(ctx context.Context, taskDependencyID uuid.UUID) (TaskDependency, error)
+	HardDeleteTaskDependency(
+		ctx context.Context,
+		taskDependencyID uuid.UUID,
+	) (TaskDependency, error)
 }
 
 type TaskRunStoreInternal interface {
@@ -140,7 +148,11 @@ type TaskRunStoreInternal interface {
 		newTR map[string]any,
 	) (TaskRun, error)
 	HardDeleteTaskRun(ctx context.Context, taskRunID uuid.UUID) (TaskRun, error)
-	TaskRunIdempotency(ctx context.Context, taskRunID uuid.UUID, newStatus TaskRunStatus) (bool, error)
+	TaskRunIdempotency(
+		ctx context.Context,
+		taskRunID uuid.UUID,
+		newStatus TaskRunStatus,
+	) (bool, error)
 
 	GetPredecessorTaskRuns(ctx context.Context, taskRunID uuid.UUID) ([]TaskRun, error)
 }

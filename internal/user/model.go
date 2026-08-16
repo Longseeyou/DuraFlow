@@ -4,11 +4,11 @@ import (
 	"github.com/Longseeyou/DuraFlow/internal/shared/model"
 )
 
-type Role int
+type Role string
 
 const (
-	ADMIN Role = iota
-	MEMBER
+	ADMIN Role = "ADMIN"
+	USER  Role = "USER"
 )
 
 type User struct {

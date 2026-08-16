@@ -1,13 +1,21 @@
 package user
 
-import "context"
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, user User) (User, error)
-	SoftDeleteUser(ctx context.Context, user User) (User, error)
-	HardDeleteUser(ctx context.Context, user User) (User, error)
-	RestoreUser(ctx context.Context, user User) (User, error)
-	GetUser(ctx context.Context, user User) (User, error)
+	UserStore
+}
+
+type UserStore interface {
+	CreateUser(ctx context.Context, u User) (User, error)
+	GetUserByID(ctx context.Context, userID uuid.UUID) (User, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
-	UpdateUser(ctx context.Context, user User, newUser map[string]any) (User, error)
+	UpdateUserByID(ctx context.Context, userID uuid.UUID, newUser map[string]any) (User, error)
+	SoftDeleteUser(ctx context.Context, userID uuid.UUID) (User, error)
+	HardDeleteUser(ctx context.Context, userID uuid.UUID) (User, error)
+	RestoreUser(ctx context.Context, userID uuid.UUID) (User, error)
 }

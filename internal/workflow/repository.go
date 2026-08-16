@@ -49,7 +49,7 @@ type WorkflowDefinitionStore interface {
 		ctx context.Context,
 		userID uuid.UUID,
 		workflowDefinitionID uuid.UUID,
-		newWorkflowD map[string]any,
+		newWorkflowDefinition map[string]any,
 	) (WorkflowDefinition, error)
 	SoftDeleteWorkflowDefinition(
 		ctx context.Context,

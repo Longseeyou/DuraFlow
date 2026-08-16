@@ -2,9 +2,21 @@ package workflow
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
+	"github.com/Longseeyou/DuraFlow/internal/shared/custom_error"
+	"github.com/Longseeyou/DuraFlow/internal/shared/mapper"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrWorkflowNameRequired     = errors.New("workflow name is required")
+	ErrWorkflowDefinitionNotDAG = errors.New(
+		"workflow definition task dependencies contain a cycle",
+	)
+	ErrWorkflowDefinitionHasActiveRuns = errors.New(
+		"workflow definition has active workflow runs",
+	)
 )
 
 type TaskService interface {
@@ -37,12 +49,12 @@ func (s *WorkflowService) CreateWorkflow(
 	dto WorkflowRequestDto,
 ) (WorkflowResponseDto, error) {
 	if dto.Name == nil {
-		//TODO :
+		return WorkflowResponseDto{}, ErrWorkflowNameRequired
 	}
 
 	w := Workflow{
 		Name:        *dto.Name,
-		Description: *dto.Description,
+		Description: mapper.StringValue(dto.Description),
 		UserID:      userID,
 	}
 
@@ -90,16 +102,16 @@ func (s *WorkflowService) UpdateWorkflowByUserAndID(
 	workflowID uuid.UUID,
 	dto WorkflowRequestDto,
 ) (WorkflowResponseDto, error) {
-	if dto.Name == nil || dto.Description == nil {
-		//TODO:
-		return WorkflowResponseDto{}, fmt.Errorf("")
-	}
 	newWorkflow := map[string]any{}
 	if dto.Name != nil {
 		newWorkflow["name"] = *dto.Name
 	}
 	if dto.Description != nil {
 		newWorkflow["description"] = *dto.Description
+	}
+
+	if len(newWorkflow) == 0 {
+		return WorkflowResponseDto{}, custom_error.ErrUpdateInvalidRequest
 	}
 
 	w, err := s.repository.UpdateWorkflowByUserAndID(ctx, userID, workflowID, newWorkflow)
@@ -135,9 +147,7 @@ func (s *WorkflowService) CreateWorkflowDefinition(
 		return WorkflowDefinitionResponseDto{}, err
 	}
 
-	wD := WorkflowDefinition{WorkflowID: workflowID}
-	wD.WorkflowID = workflowID
-	wD.Status = WORKFLOW_DEFINITION_EDITING
+	wD := WorkflowDefinition{WorkflowID: workflowID, Status: WORKFLOW_DEFINITION_EDITING}
 
 	wD, err = s.repository.CreateWorkflowDefinition(ctx, wD)
 	if err != nil {
@@ -184,16 +194,16 @@ func (s *WorkflowService) UpdateWorkflowDefinitionByUserAndID(
 	workflowDefinitionID uuid.UUID,
 	dto WorkflowDefinitionRequestDto,
 ) (WorkflowDefinitionResponseDto, error) {
-	newWorkflowD := map[string]any{}
+	newWorkflowDefinition := map[string]any{}
 	if dto.Status != nil {
-		newWorkflowD["status"] = *dto.Status
-		if newWorkflowD["status"] == WORKFLOW_DEFINITION_ACTIVATED {
-			valid, err := s.taskService.IsTaskDependencyDag(ctx, userID, workflowDefinitionID)
+		newWorkflowDefinition["status"] = *dto.Status
+		if newWorkflowDefinition["status"] == WORKFLOW_DEFINITION_ACTIVATED {
+			ok, err := s.taskService.IsTaskDependencyDag(ctx, userID, workflowDefinitionID)
 			if err != nil {
 				return WorkflowDefinitionResponseDto{}, err
 			}
-			if !valid {
-
+			if !ok {
+				return WorkflowDefinitionResponseDto{}, ErrWorkflowDefinitionNotDAG
 			}
 		} else {
 			count, err := s.repository.CountActiveWorkflowRunByUserAndWorkflowDefinition(
@@ -205,18 +215,21 @@ func (s *WorkflowService) UpdateWorkflowDefinitionByUserAndID(
 				return WorkflowDefinitionResponseDto{}, err
 			}
 			if count != 0 {
-				// TODO:
-				return WorkflowDefinitionResponseDto{}, fmt.Errorf("")
+				return WorkflowDefinitionResponseDto{}, ErrWorkflowDefinitionHasActiveRuns
 			}
 
 		}
+	}
+
+	if len(newWorkflowDefinition) == 0 {
+		return WorkflowDefinitionResponseDto{}, custom_error.ErrUpdateInvalidRequest
 	}
 
 	wD, err := s.repository.UpdateWorkflowDefinitionByUserAndID(
 		ctx,
 		userID,
 		workflowDefinitionID,
-		newWorkflowD,
+		newWorkflowDefinition,
 	)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
@@ -236,6 +249,19 @@ func (s *WorkflowService) SoftDeleteWorkflowDefinition(
 	}
 
 	return workflowDefinitionModelToResponseDto(wD), nil
+}
+
+func (s *WorkflowService) ExistsWorkflowDefinitionByUserAndID(
+	ctx context.Context,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
+) (bool, error) {
+	_, err := s.repository.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowDefinitionID)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // WorkflowRun
@@ -284,14 +310,13 @@ func (s *WorkflowService) UpdateWorkflowRunByUserAndID(
 	workflowRunID uuid.UUID,
 	dto WorkflowRunRequestDto,
 ) (WorkflowRunResponseDto, error) {
-	if dto.Status == nil {
-		//TODO:
-		return WorkflowRunResponseDto{}, fmt.Errorf("")
-	}
-
 	newWorkflowRun := map[string]any{}
 	if dto.Status != nil {
 		newWorkflowRun["status"] = *dto.Status
+	}
+
+	if len(newWorkflowRun) == 0 {
+		return WorkflowRunResponseDto{}, custom_error.ErrUpdateInvalidRequest
 	}
 
 	workflowRun, err := s.repository.UpdateWorkflowRunByUserAndID(
