@@ -14,61 +14,72 @@ type WorkflowRepository interface {
 
 type WorkflowStore interface {
 	CreateWorkflow(ctx context.Context, w Workflow) (Workflow, error)
-	GetWorkflowByUser(ctx context.Context, uId uuid.UUID) ([]Workflow, error)
-	GetWorkflowByUserAndId(ctx context.Context, uId uuid.UUID, wId uuid.UUID) (Workflow, error)
-	UpdateWorkflowByUserAndId(
+	GetWorkflowByUser(ctx context.Context, userID uuid.UUID) ([]Workflow, error)
+	GetWorkflowByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		wId uuid.UUID,
-		newW map[string]any,
+		userID uuid.UUID,
+		workflowID uuid.UUID,
 	) (Workflow, error)
-	SoftDeleteWorkflow(ctx context.Context, uId uuid.UUID, wId uuid.UUID) (Workflow, error)
+	UpdateWorkflowByUserAndID(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowID uuid.UUID,
+		newWorkflow map[string]any,
+	) (Workflow, error)
+	SoftDeleteWorkflow(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowID uuid.UUID,
+	) (Workflow, error)
 }
 
 type WorkflowDefinitionStore interface {
 	CreateWorkflowDefinition(ctx context.Context, wD WorkflowDefinition) (WorkflowDefinition, error)
 	GetWorkflowDefinitionByWorkflow(
 		ctx context.Context,
-		uId uuid.UUID,
-		wId uuid.UUID,
+		userID uuid.UUID,
+		workflowID uuid.UUID,
 	) ([]WorkflowDefinition, error)
-	GetWorkflowDefinitionByUserAndId(
+	GetWorkflowDefinitionByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		wDId uuid.UUID,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) (WorkflowDefinition, error)
-	UpdateWorkflowDefinitionByUserAndId(
+	UpdateWorkflowDefinitionByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		wDId uuid.UUID,
-		newWD map[string]any,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
+		newWorkflowD map[string]any,
 	) (WorkflowDefinition, error)
 	SoftDeleteWorkflowDefinition(
 		ctx context.Context,
-		uId uuid.UUID,
-		wDId uuid.UUID,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) (WorkflowDefinition, error)
 }
 
 type WorkflowRunStore interface {
-	// CreateWorkflowRun(ctx context.Context, wR WorkflowRun) (WorkflowRun, error)
 	GetWorkflowRunByWorkflowDefinition(
 		ctx context.Context,
-		uId uuid.UUID,
-		wDId uuid.UUID,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
 	) ([]WorkflowRun, error)
-	GetWorkflowRunByUserAndId(
+	GetWorkflowRunByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		wRId uuid.UUID,
+		userID uuid.UUID,
+		workflowRunID uuid.UUID,
 	) (WorkflowRun, error)
-	UpdateWorkflowRunByUserAndId(
+	UpdateWorkflowRunByUserAndID(
 		ctx context.Context,
-		uId uuid.UUID,
-		wRId uuid.UUID,
-		newWR map[string]any,
+		userID uuid.UUID,
+		workflowRunID uuid.UUID,
+		newWorkflowRun map[string]any,
 	) (WorkflowRun, error)
-	SoftDeleteWorkflowRun(ctx context.Context, uId uuid.UUID, wRId uuid.UUID) (WorkflowRun, error)
+	SoftDeleteWorkflowRun(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowRunID uuid.UUID,
+	) (WorkflowRun, error)
 }
 
 type WorkflowRepositoryInternal interface {
@@ -78,30 +89,42 @@ type WorkflowRepositoryInternal interface {
 }
 
 type WorkflowStoreInternal interface {
-	GetWorkflowById(ctx context.Context, wId uuid.UUID) (Workflow, error)
-	HardDeleteWorkflow(ctx context.Context, wId uuid.UUID) (Workflow, error)
+	GetWorkflowById(ctx context.Context, workflowID uuid.UUID) (Workflow, error)
+	HardDeleteWorkflow(ctx context.Context, workflowID uuid.UUID) (Workflow, error)
 }
 
 type WorkflowDefinitionStoreInternal interface {
-	GetWorkflowDefinitionById(ctx context.Context, wDId uuid.UUID) (WorkflowDefinition, error)
-	HardDeleteWorkflowDefinition(ctx context.Context, wDId uuid.UUID) (WorkflowDefinition, error)
+	GetWorkflowDefinitionByID(
+		ctx context.Context,
+		workflowDefinitionID uuid.UUID,
+	) (WorkflowDefinition, error)
+	HardDeleteWorkflowDefinition(
+		ctx context.Context,
+		workflowDefinitionID uuid.UUID,
+	) (WorkflowDefinition, error)
 }
 
 type WorkflowRunStoreInternal interface {
-	CreateWorkflowRun(ctx context.Context, wR WorkflowRun) (WorkflowRun, error)
-	GetWorkflowRunById(ctx context.Context, wRId uuid.UUID) (WorkflowRun, error)
-	UpdateWorkflowRunById(
+	CreateWorkflowRun(
 		ctx context.Context,
-		wRId uuid.UUID,
-		newWR map[string]any,
+		workflowRun WorkflowRun,
 	) (WorkflowRun, error)
-	HardDeleteWorkflowRun(ctx context.Context, wRId uuid.UUID) (WorkflowRun, error)
-	// UpdateWorkflowRunByIdAndStatusInternal(
-	// 	ctx context.Context,
-	// 	wRId uuid.UUID,
-	// 	statuses []WorkflowRunStatus,
-	// 	newWR map[string]any,
-	// ) (WorkflowRun, bool, error)
+	GetWorkflowRunByID(
+		ctx context.Context,
+		workflowRunID uuid.UUID,
+	) (WorkflowRun, error)
+	UpdateWorkflowRunByID(
+		ctx context.Context,
+		workflowRunID uuid.UUID,
+		newWorkflowRun map[string]any,
+	) (WorkflowRun, error)
+	HardDeleteWorkflowRun(
+		ctx context.Context,
+		workflowRunID uuid.UUID,
+	) (WorkflowRun, error)
 
-	CountActiveWorkflowRunByWorkflowDefinition(ctx context.Context, wDId uuid.UUID) (int64, error)
+	CountActiveWorkflowRunByWorkflowDefinition(
+		ctx context.Context,
+		workflowDefinitionID uuid.UUID,
+	) (int64, error)
 }

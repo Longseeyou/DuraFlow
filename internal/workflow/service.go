@@ -8,32 +8,47 @@ import (
 )
 
 type TaskService interface {
-	IsTaskDependencyDag(ctx context.Context, uId uuid.UUID, wDId uuid.UUID) (bool, error)
+	IsTaskDependencyDag(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
+	) (bool, error)
 }
 
 type WorkflowService struct {
 	repository         WorkflowRepository
 	repositoryInternal WorkflowRepositoryInternal
-	tS                 TaskService
+	taskService        TaskService
 }
 
 func NewWorkflowService(
-	workflowRepository WorkflowRepository, taskService TaskService,
+	repository WorkflowRepository,
+	repositoryInternal WorkflowRepositoryInternal,
+	taskService TaskService,
 ) *WorkflowService {
 	return &WorkflowService{
-		repository: workflowRepository, tS: taskService,
+		repository:         repository,
+		repositoryInternal: repositoryInternal,
+		taskService:        taskService,
 	}
 }
 
-func (wS *WorkflowService) CreateWorkflow(
+func (s *WorkflowService) CreateWorkflow(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDto WorkflowRequestDto,
+	userID uuid.UUID,
+	dto WorkflowRequestDto,
 ) (WorkflowResponseDto, error) {
-	w := workflowRequestDtoToModel(wDto)
-	w.UserID = uId
+	if dto.Name == nil {
+		//TODO :
+	}
 
-	w, err := wS.repository.CreateWorkflow(ctx, w)
+	w := Workflow{
+		Name:        *dto.Name,
+		Description: *dto.Description,
+		UserID:      userID,
+	}
+
+	w, err := s.repository.CreateWorkflow(ctx, w)
 	if err != nil {
 		return WorkflowResponseDto{}, err
 	}
@@ -41,29 +56,29 @@ func (wS *WorkflowService) CreateWorkflow(
 	return workflowModelToResponseDto(w), nil
 }
 
-func (wS *WorkflowService) GetWorkflowByUser(
+func (s *WorkflowService) GetWorkflowByUser(
 	ctx context.Context,
-	uId uuid.UUID,
+	userID uuid.UUID,
 ) ([]WorkflowResponseDto, error) {
-	w, err := wS.repository.GetWorkflowByUser(ctx, uId)
+	ws, err := s.repository.GetWorkflowByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	wDto := []WorkflowResponseDto{}
-	for _, v := range w {
-		wDto = append(wDto, workflowModelToResponseDto(v))
+	wDtos := make([]WorkflowResponseDto, len(ws))
+	for i, w := range ws {
+		wDtos[i] = workflowModelToResponseDto(w)
 	}
 
-	return wDto, nil
+	return wDtos, nil
 }
 
-func (wS *WorkflowService) GetWorkflowByUserAndId(
+func (s *WorkflowService) GetWorkflowByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) (WorkflowResponseDto, error) {
-	w, err := wS.repository.GetWorkflowByUserAndId(ctx, uId, wId)
+	w, err := s.repository.GetWorkflowByUserAndID(ctx, userID, workflowID)
 	if err != nil {
 		return WorkflowResponseDto{}, err
 	}
@@ -71,21 +86,25 @@ func (wS *WorkflowService) GetWorkflowByUserAndId(
 	return workflowModelToResponseDto(w), nil
 }
 
-func (wS *WorkflowService) UpdateWorkflowByUserAndId(
+func (s *WorkflowService) UpdateWorkflowByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
-	wDto WorkflowRequestDto,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
+	dto WorkflowRequestDto,
 ) (WorkflowResponseDto, error) {
-	newW := map[string]any{}
-	if wDto.Name != nil {
-		newW["name"] = *wDto.Name
+	if dto.Name == nil && dto.Description == nil {
+		//TODO:
+		return WorkflowResponseDto{}, fmt.Errorf("")
 	}
-	if wDto.Description != nil {
-		newW["description"] = *wDto.Description
+	newWorkflow := map[string]any{}
+	if dto.Name != nil {
+		newWorkflow["name"] = *dto.Name
+	}
+	if dto.Description != nil {
+		newWorkflow["description"] = *dto.Description
 	}
 
-	w, err := wS.repository.UpdateWorkflowByUserAndId(ctx, uId, wId, newW)
+	w, err := s.repository.UpdateWorkflowByUserAndID(ctx, userID, workflowID, newWorkflow)
 	if err != nil {
 		return WorkflowResponseDto{}, err
 	}
@@ -93,12 +112,12 @@ func (wS *WorkflowService) UpdateWorkflowByUserAndId(
 	return workflowModelToResponseDto(w), nil
 }
 
-func (wS *WorkflowService) SoftDeleteWorkflow(
+func (s *WorkflowService) SoftDeleteWorkflow(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) (WorkflowResponseDto, error) {
-	w, err := wS.repository.SoftDeleteWorkflow(ctx, uId, wId)
+	w, err := s.repository.SoftDeleteWorkflow(ctx, userID, workflowID)
 	if err != nil {
 		return WorkflowResponseDto{}, err
 	}
@@ -108,21 +127,21 @@ func (wS *WorkflowService) SoftDeleteWorkflow(
 
 // WorkflowDefinition
 
-func (wS *WorkflowService) CreateWorkflowDefinition(
+func (s *WorkflowService) CreateWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) (WorkflowDefinitionResponseDto, error) {
-	_, err := wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wId)
+	_, err := s.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowID)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
 
-	wD := WorkflowDefinition{WorkflowID: wId}
-	wD.WorkflowID = wId
+	wD := WorkflowDefinition{WorkflowID: workflowID}
+	wD.WorkflowID = workflowID
 	wD.Status = WORKFLOW_DEFINITION_EDITING
 
-	wD, err = wS.repository.CreateWorkflowDefinition(ctx, wD)
+	wD, err = s.repository.CreateWorkflowDefinition(ctx, wD)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
@@ -130,30 +149,30 @@ func (wS *WorkflowService) CreateWorkflowDefinition(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (wS *WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(
+func (s *WorkflowService) GetWorkflowDefinitionByUserAndWorkflow(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) ([]WorkflowDefinitionResponseDto, error) {
-	wD, err := wS.repository.GetWorkflowDefinitionByWorkflow(ctx, uId, wId)
+	wDs, err := s.repository.GetWorkflowDefinitionByWorkflow(ctx, userID, workflowID)
 	if err != nil {
 		return nil, err
 	}
 
-	wDDto := []WorkflowDefinitionResponseDto{}
-	for _, v := range wD {
-		wDDto = append(wDDto, workflowDefinitionModelToResponseDto(v))
+	wDDtos := make([]WorkflowDefinitionResponseDto, len(wDs))
+	for i, wD := range wDs {
+		wDDtos[i] = workflowDefinitionModelToResponseDto(wD)
 	}
 
-	return wDDto, nil
+	return wDDtos, nil
 }
 
-func (wS *WorkflowService) GetWorkflowDefinitionByUserAndId(
+func (s *WorkflowService) GetWorkflowDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (WorkflowDefinitionResponseDto, error) {
-	wD, err := wS.repository.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
+	wD, err := s.repository.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowDefinitionID)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
@@ -161,17 +180,17 @@ func (wS *WorkflowService) GetWorkflowDefinitionByUserAndId(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (wS *WorkflowService) UpdateWorkflowDefinitionByUserAndId(
+func (s *WorkflowService) UpdateWorkflowDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-	wDDto WorkflowDefinitionRequestDto,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
+	dto WorkflowDefinitionRequestDto,
 ) (WorkflowDefinitionResponseDto, error) {
-	newWD := map[string]any{}
-	if wDDto.Status != nil {
-		newWD["status"] = *wDDto.Status
-		if newWD["status"] == WORKFLOW_DEFINITION_ACTIVATED {
-			valid, err := wS.tS.IsTaskDependencyDag(ctx, uId, wDId)
+	newWorkflowD := map[string]any{}
+	if dto.Status != nil {
+		newWorkflowD["status"] = *dto.Status
+		if newWorkflowD["status"] == WORKFLOW_DEFINITION_ACTIVATED {
+			valid, err := s.taskService.IsTaskDependencyDag(ctx, userID, workflowDefinitionID)
 			if err != nil {
 				return WorkflowDefinitionResponseDto{}, err
 			}
@@ -179,9 +198,9 @@ func (wS *WorkflowService) UpdateWorkflowDefinitionByUserAndId(
 
 			}
 		} else {
-			count, err := wS.repositoryInternal.CountActiveWorkflowRunByWorkflowDefinition(
+			count, err := s.repositoryInternal.CountActiveWorkflowRunByWorkflowDefinition(
 				ctx,
-				wDId,
+				workflowDefinitionID,
 			)
 			if err != nil {
 				return WorkflowDefinitionResponseDto{}, err
@@ -194,7 +213,12 @@ func (wS *WorkflowService) UpdateWorkflowDefinitionByUserAndId(
 		}
 	}
 
-	wD, err := wS.repository.UpdateWorkflowDefinitionByUserAndId(ctx, uId, wDId, newWD)
+	wD, err := s.repository.UpdateWorkflowDefinitionByUserAndID(
+		ctx,
+		userID,
+		workflowDefinitionID,
+		newWorkflowD,
+	)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
@@ -202,12 +226,12 @@ func (wS *WorkflowService) UpdateWorkflowDefinitionByUserAndId(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (wS *WorkflowService) SoftDeleteWorkflowDefinition(
+func (s *WorkflowService) SoftDeleteWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (WorkflowDefinitionResponseDto, error) {
-	wD, err := wS.repository.SoftDeleteWorkflowDefinition(ctx, uId, wDId)
+	wD, err := s.repository.SoftDeleteWorkflowDefinition(ctx, userID, workflowDefinitionID)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
@@ -217,85 +241,86 @@ func (wS *WorkflowService) SoftDeleteWorkflowDefinition(
 
 // WorkflowRun
 
-// func (wS *WorkflowService) CreateWorkflowRun(
-// 	ctx context.Context,
-// 	uId uuid.UUID,
-// 	wDId uuid.UUID,
-// ) (WorkflowRunResponseDto, error) {
-// 	_, err := wS.GetWorkflowDefinitionByUserAndId(ctx, uId, wDId)
-// 	if err != nil {
-// 		return WorkflowRunResponseDto{}, err
-// 	}
-//
-// 	wR := WorkflowRun{WorkflowDefinitionID: wDId, Status: WORKFLOW_RUN_PENDING}
-// 	wR.WorkflowDefinitionID = wDId
-//
-// 	wR, err = wS.repository.CreateWorkflowRun(ctx, wR)
-// 	if err != nil {
-// 		return WorkflowRunResponseDto{}, err
-// 	}
-//
-// 	return workflowRunModelToResponseDto(wR), nil
-// }
-
-func (wS *WorkflowService) GetWorkflowRunByWorkflowDefinition(
+func (s *WorkflowService) GetWorkflowRunByWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]WorkflowRunResponseDto, error) {
-	wR, err := wS.repository.GetWorkflowRunByWorkflowDefinition(ctx, uId, wDId)
+	wRs, err := s.repository.GetWorkflowRunByWorkflowDefinition(
+		ctx,
+		userID,
+		workflowDefinitionID,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	wRDto := []WorkflowRunResponseDto{}
-	for _, v := range wR {
-		wRDto = append(wRDto, workflowRunModelToResponseDto(v))
+	wRDtos := make([]WorkflowRunResponseDto, len(wRs))
+	for i, wR := range wRs {
+		wRDtos[i] = workfloworkflowRununModelToResponseDto(wR)
 	}
-	return wRDto, nil
+	return wRDtos, nil
 }
 
-func (wS *WorkflowService) GetWorkflowRunByUserAndId(
+func (s *WorkflowService) GetWorkflowRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunID uuid.UUID,
 ) (WorkflowRunResponseDto, error) {
-	wR, err := wS.repository.GetWorkflowRunByUserAndId(ctx, uId, wRId)
+	wR, err := s.repository.GetWorkflowRunByUserAndID(
+		ctx,
+		userID,
+		workflowRunID,
+	)
 	if err != nil {
 		return WorkflowRunResponseDto{}, err
 	}
 
-	return workflowRunModelToResponseDto(wR), nil
+	return workfloworkflowRununModelToResponseDto(wR), nil
 }
 
-func (wS *WorkflowService) UpdateWorkflowRunByUserAndId(
+func (s *WorkflowService) UpdateWorkflowRunByUserAndId(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
-	wRDto WorkflowRunRequestDto,
+	userID uuid.UUID,
+	workflowRunID uuid.UUID,
+	dto WorkflowRunRequestDto,
 ) (WorkflowRunResponseDto, error) {
-	newWR := map[string]any{}
-	if wRDto.Status != nil {
-		newWR["status"] = *wRDto.Status
+	if dto.Status == nil {
+		//TODO:
+		return WorkflowRunResponseDto{}, fmt.Errorf("")
 	}
 
-	wR, err := wS.repository.UpdateWorkflowRunByUserAndId(ctx, uId, wRId, newWR)
+	newWorkflowRun := map[string]any{}
+	if dto.Status != nil {
+		newWorkflowRun["status"] = *dto.Status
+	}
+
+	workflowRun, err := s.repository.UpdateWorkflowRunByUserAndID(
+		ctx,
+		userID,
+		workflowRunID,
+		newWorkflowRun,
+	)
 	if err != nil {
 		return WorkflowRunResponseDto{}, err
 	}
 
-	return workflowRunModelToResponseDto(wR), nil
+	return workfloworkflowRununModelToResponseDto(workflowRun), nil
 }
 
-func (wS *WorkflowService) SoftDeleteWorkflowRun(
+func (s *WorkflowService) SoftDeleteWorkflowRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunID uuid.UUID,
 ) (WorkflowRunResponseDto, error) {
-	wR, err := wS.repository.SoftDeleteWorkflowRun(ctx, uId, wRId)
+	workflowRun, err := s.repository.SoftDeleteWorkflowRun(
+		ctx,
+		userID,
+		workflowRunID,
+	)
 	if err != nil {
 		return WorkflowRunResponseDto{}, err
 	}
 
-	return workflowRunModelToResponseDto(wR), nil
+	return workfloworkflowRununModelToResponseDto(workflowRun), nil
 }

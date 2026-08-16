@@ -1,46 +1,28 @@
 package workflow
 
-func workflowRequestDtoToModel(wDto WorkflowRequestDto) Workflow {
-	w := Workflow{}
-	w.Name = *wDto.Name
-	w.Description = *wDto.Description
-	return w
-}
-
 func workflowModelToResponseDto(w Workflow) WorkflowResponseDto {
-	wDto := WorkflowResponseDto{}
-	wDto.BaseModelToResponseDto(w)
-	wDto.Name = w.Name
-	wDto.Description = w.Description
-	return wDto
+	dto := WorkflowResponseDto{}
+	dto.BaseModelToResponseDto(w)
+	dto.Name = w.Name
+	dto.Description = w.Description
+	return dto
 }
-
-// func workflowDefinitionRequestDtoToModel(wDDto WorkflowDefinitionRequestDto) WorkflowDefinition {
-// 	wD := WorkflowDefinition{}
-// 	wD.Version = *wDDto.Version
-// 	wD.Status = *wDDto.Status
-// 	return wD
-// }
 
 func workflowDefinitionModelToResponseDto(wD WorkflowDefinition) WorkflowDefinitionResponseDto {
-	wDDto := WorkflowDefinitionResponseDto{}
-	wDDto.BaseModelToResponseDto(wD)
-	wDDto.Version = wD.Version
-	wDDto.Status = wD.Status
-	return wDDto
+	dto := WorkflowDefinitionResponseDto{}
+	dto.BaseModelToResponseDto(wD)
+	dto.Version = wD.Version
+	dto.Status = wD.Status
+	return dto
 }
 
-// func workflowRunRequestDtoToModel(wRDto WorkflowRunRequestDto) WorkflowRun {
-// 	wR := WorkflowRun{}
-// 	wR.Status = *wRDto.Status
-// 	return wR
-// }
-
-func workflowRunModelToResponseDto(wR WorkflowRun) WorkflowRunResponseDto {
-	wRDto := WorkflowRunResponseDto{}
-	wRDto.BaseModelToResponseDto(wR)
-	wRDto.Status = wR.Status
-	wRDto.StartedAt = *wR.StartedAt
-	wRDto.EndedAt = *wR.EndedAt
-	return wRDto
+func workfloworkflowRununModelToResponseDto(
+	workflowRun WorkflowRun,
+) WorkflowRunResponseDto {
+	dto := WorkflowRunResponseDto{}
+	dto.BaseModelToResponseDto(workflowRun)
+	dto.Status = workflowRun.Status
+	dto.StartedAt = workflowRun.StartedAt
+	dto.EndedAt = workflowRun.EndedAt
+	return dto
 }

@@ -19,120 +19,123 @@ func NewPostgresWorkflowRepository(database *gorm.DB) workflow.WorkflowRepositor
 	return PostgresWorkflowRepository{database: database}
 }
 
-func (pWR PostgresWorkflowRepository) CreateWorkflow(
+func (repo PostgresWorkflowRepository) CreateWorkflow(
 	ctx context.Context,
 	w workflow.Workflow,
 ) (workflow.Workflow, error) {
-	result := pWR.database.WithContext(ctx).Create(&w)
+	result := repo.database.WithContext(ctx).Create(&w)
 	return w, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) GetWorkflowByUser(
+func (repo PostgresWorkflowRepository) GetWorkflowByUser(
 	ctx context.Context,
-	uId uuid.UUID,
+	userID uuid.UUID,
 ) ([]workflow.Workflow, error) {
 	var w []workflow.Workflow
-	result := pWR.database.WithContext(ctx).Where("user_id = ?", uId).Find(&w)
+	result := repo.database.WithContext(ctx).Where("user_id = ?", userID).Find(&w)
 	return w, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) GetWorkflowByUserAndId(
+func (repo PostgresWorkflowRepository) GetWorkflowByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) (workflow.Workflow, error) {
 	w := workflow.Workflow{}
-	result := pWR.database.WithContext(ctx).Where("user_id = ? AND id = ?", uId, wId).First(&w)
+	result := repo.database.WithContext(ctx).
+		Where("user_id = ? AND id = ?", userID, workflowID).
+		First(&w)
 	return w, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowByUserAndId(
+func (repo PostgresWorkflowRepository) UpdateWorkflowByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
-	newW map[string]any,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
+	newWorkflow map[string]any,
 ) (workflow.Workflow, error) {
 	w := workflow.Workflow{}
-	result := pWR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Model(&w).
 		Clauses(clause.Returning{}).
-		Where("user_id = ? AND id = ?", uId, wId).
-		Updates(newW)
+		Where("user_id = ? AND id = ?", userID, workflowID).
+		Updates(newWorkflow)
 	return w, repository.CheckRowsAffected(result)
 }
 
-func (pWR PostgresWorkflowRepository) SoftDeleteWorkflow(
+func (repo PostgresWorkflowRepository) SoftDeleteWorkflow(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) (workflow.Workflow, error) {
 	w := workflow.Workflow{}
-	result := pWR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Clauses(clause.Returning{}).
-		Where("user_id = ? AND id = ?", uId, wId).
+		Where("user_id = ? AND id = ?", userID, workflowID).
 		Delete(&w)
 	return w, repository.CheckRowsAffected(result)
 }
 
 // WorkflowDefinition
 
-func (pWR PostgresWorkflowRepository) CreateWorkflowDefinition(
+func (repo PostgresWorkflowRepository) CreateWorkflowDefinition(
 	ctx context.Context,
 	wD workflow.WorkflowDefinition,
 ) (workflow.WorkflowDefinition, error) {
-	result := pWR.database.WithContext(ctx).Create(&wD)
+	result := repo.database.WithContext(ctx).Create(&wD)
 	return wD, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) GetWorkflowDefinitionByWorkflow(
+func (repo PostgresWorkflowRepository) GetWorkflowDefinitionByWorkflow(
 	ctx context.Context,
-	uId uuid.UUID,
-	wId uuid.UUID,
+	userID uuid.UUID,
+	workflowID uuid.UUID,
 ) ([]workflow.WorkflowDefinition, error) {
 	wD := []workflow.WorkflowDefinition{}
-	result := pWR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflows.id = ?", uId, wId).
+		Where("workflows.user_id = ? AND workflows.id = ?", userID, workflowID).
 		Find(&wD)
 	return wD, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) GetWorkflowDefinitionByUserAndId(
+func (repo PostgresWorkflowRepository) GetWorkflowDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := pWR.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).First(&wD)
+		Where("workflows.user_id = ? AND workflow_definitions.id = ?", userID, workflowDefinitionID).
+		First(&wD)
 	return wD, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) filterWorkflowByUserAndId(
+func (repo PostgresWorkflowRepository) filterWorkflowByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) *gorm.DB {
-	return pWR.database.WithContext(ctx).
+	return repo.database.WithContext(ctx).
 		Where(`EXISTS (
       SELECT 1 
       FROM workflows
       WHERE workflows.id = workflow_definitions.workflow_id AND workflows.user_id = ?
-    )`, uId).
-		Where("workflow_definitions.id = ?", wDId)
+    )`, userID).
+		Where("workflow_definitions.id = ?", workflowDefinitionID)
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndId(
+func (repo PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-	newWD map[string]any,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
+	newWorkflowDefinition map[string]any,
 ) (workflow.WorkflowDefinition, error) {
-	wD := workflow.WorkflowDefinition{}
+	var wD workflow.WorkflowDefinition
 
-	filter := pWR.filterWorkflowByUserAndId(ctx, uId, wDId)
-	v, ok := newWD["status"]
+	filter := repo.filterWorkflowByUserAndID(ctx, userID, workflowDefinitionID)
+	v, ok := newWorkflowDefinition["status"]
 	if ok {
 		newStatus, ok := v.(workflow.WorkflowDefinitionStatus)
 		if !ok {
@@ -148,32 +151,17 @@ func (pWR PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndId(
 	result := filter.
 		Clauses(clause.Returning{}).
 		Model(&wD).
-		Updates(newWD)
+		Updates(newWorkflowDefinition)
 	return wD, repository.CheckRowsAffected(result)
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowDefinitionStatusByUserAndId(
+func (repo PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-	newStatus workflow.WorkflowDefinitionStatus,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
-	wD := workflow.WorkflowDefinition{}
-	result := pWR.filterWorkflowByUserAndId(ctx, uId, wDId).
-		Where("workflow_definitions.status IN", workflow.ValidPreviousWorkflowDefinitionStatus(newStatus)).
-		Clauses(clause.Returning{}).
-		Model(&wD).
-		Updates(map[string]workflow.WorkflowDefinitionStatus{"status": newStatus})
-	return wD, repository.CheckRowsAffected(result)
-}
-
-func (pWR PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
-	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
-) (workflow.WorkflowDefinition, error) {
-	wD := workflow.WorkflowDefinition{}
-	result := pWR.filterWorkflowByUserAndId(ctx, uId, wDId).
+	var wD workflow.WorkflowDefinition
+	result := repo.filterWorkflowByUserAndID(ctx, userID, workflowDefinitionID).
 		Clauses(clause.Returning{}).
 		Delete(&wD)
 	return wD, repository.CheckRowsAffected(result)
@@ -181,88 +169,88 @@ func (pWR PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
 
 // WorkflowRun
 
-func (pWR PostgresWorkflowRepository) CreateWorkflowRun(
+func (repo PostgresWorkflowRepository) CreateWorkflowRun(
 	ctx context.Context,
-	wR workflow.WorkflowRun,
+	workflowRun workflow.WorkflowRun,
 ) (workflow.WorkflowRun, error) {
-	result := pWR.database.WithContext(ctx).Create(&wR)
-	return wR, result.Error
+	result := repo.database.WithContext(ctx).Create(&workflowRun)
+	return workflowRun, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) GetWorkflowRunByWorkflowDefinition(
+func (repo PostgresWorkflowRepository) GetWorkflowRunByWorkflowDefinition(
 	ctx context.Context,
-	uId uuid.UUID,
-	wDId uuid.UUID,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) ([]workflow.WorkflowRun, error) {
-	wR := []workflow.WorkflowRun{}
-	result := pWR.database.WithContext(ctx).
+	var wR []workflow.WorkflowRun
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_definitions.id = ?", uId, wDId).
+		Where("workflows.user_id = ? AND workflow_definitions.id = ?", userID, workflowDefinitionID).
 		Find(&wR)
 	return wR, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) GetWorkflowRunByUserAndId(
+func (repo PostgresWorkflowRepository) GetWorkflowRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
-	wR := workflow.WorkflowRun{}
-	result := pWR.database.WithContext(ctx).
+	var wR workflow.WorkflowRun
+	result := repo.database.WithContext(ctx).
 		Joins("JOIN workflow_definitions ON workflow_definitions.id = workflow_runs.workflow_definition_id").
 		Joins("JOIN workflows ON workflows.id = workflow_definitions.workflow_id").
-		Where("workflows.user_id = ? AND workflow_runs.id = ?", uId, wRId).First(&wR)
+		Where("workflows.user_id = ? AND workflow_runs.id = ?", userID, workflowRunId).First(&wR)
 	return wR, result.Error
 }
 
-func (pWR PostgresWorkflowRepository) filterWorkflowRunByUserAndId(
-	ctx context.Context, uId uuid.UUID,
-	wRId uuid.UUID,
+func (repo PostgresWorkflowRepository) filterWorkflowRunByUserAndID(
+	ctx context.Context, userID uuid.UUID,
+	workflowRunId uuid.UUID,
 ) *gorm.DB {
-	return pWR.database.WithContext(ctx).
+	return repo.database.WithContext(ctx).
 		Where(`EXISTS (
       SELECT 1
       FROM workflow_definitions
       JOIN workflows ON workflows.id = workflow_definitions.workflow_id
       WHERE workflow_definitions.id = workflow_runs.workflow_definition_id AND workflows.user_id = ?
-    )`, uId).
-		Where("workflow_runs.id = ?", wRId)
+    )`, userID).
+		Where("workflow_runs.id = ?", workflowRunId)
 }
 
-func (pWR PostgresWorkflowRepository) UpdateWorkflowRunByUserAndId(
+func (repo PostgresWorkflowRepository) UpdateWorkflowRunByUserAndID(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
-	newWR map[string]any,
+	userID uuid.UUID,
+	workflowRunId uuid.UUID,
+	newWorkflowRun map[string]any,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := pWR.filterWorkflowRunByUserAndId(ctx, uId, wRId).
+	result := repo.filterWorkflowRunByUserAndID(ctx, userID, workflowRunId).
 		Clauses(clause.Returning{}).
 		Model(&wR).
-		Updates(newWR)
+		Updates(newWorkflowRun)
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (pWR PostgresWorkflowRepository) SoftDeleteWorkflowRun(
+func (repo PostgresWorkflowRepository) SoftDeleteWorkflowRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := pWR.filterWorkflowRunByUserAndId(ctx, uId, wRId).
+	result := repo.filterWorkflowRunByUserAndID(ctx, userID, workflowRunId).
 		Clauses(clause.Returning{}).
 		Delete(&wR)
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (pWR PostgresWorkflowRepository) HardDeleteWorkflowRun(
+func (repo PostgresWorkflowRepository) HardDeleteWorkflowRun(
 	ctx context.Context,
-	uId uuid.UUID,
-	wRId uuid.UUID,
+	userID uuid.UUID,
+	workflowRunId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := pWR.filterWorkflowRunByUserAndId(ctx, uId, wRId).
+	result := repo.filterWorkflowRunByUserAndID(ctx, userID, workflowRunId).
 		Clauses(clause.Returning{}).
 		Unscoped().
 		Delete(&wR)
@@ -281,23 +269,23 @@ func NewPostgresWorkflowRepositoryInternal(database *gorm.DB) workflow.WorkflowR
 
 // Workflow
 
-func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowById(
+func (repo PostgresWorkflowRepositoryInternal) GetWorkflowByID(
 	ctx context.Context,
-	wId uuid.UUID,
+	workflowID uuid.UUID,
 ) (workflow.Workflow, error) {
-	w := workflow.Workflow{}
-	result := pWRI.database.WithContext(ctx).Where("id = ?", wId).First(&w)
+	var w workflow.Workflow
+	result := repo.database.WithContext(ctx).Where("id = ?", workflowID).First(&w)
 	return w, result.Error
 }
 
-func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
+func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
 	ctx context.Context,
-	wId uuid.UUID,
+	workflowID uuid.UUID,
 ) (workflow.Workflow, error) {
-	w := workflow.Workflow{}
-	result := pWRI.database.WithContext(ctx).
+	var w workflow.Workflow
+	result := repo.database.WithContext(ctx).
 		Clauses(clause.Returning{}).
-		Where("id = ?", wId).
+		Where("id = ?", workflowID).
 		Unscoped().
 		Delete(&w)
 	return w, repository.CheckRowsAffected(result)
@@ -305,23 +293,23 @@ func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
 
 // WorkflowDefinition
 
-func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionById(
+func (repo PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionByID(
 	ctx context.Context,
-	wDId uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
-	wD := workflow.WorkflowDefinition{}
-	result := pWRI.database.WithContext(ctx).Where("id = ?", wDId).First(&wD)
+	var wD workflow.WorkflowDefinition
+	result := repo.database.WithContext(ctx).Where("id = ?", workflowDefinitionID).First(&wD)
 	return wD, result.Error
 }
 
-func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
+func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
 	ctx context.Context,
-	wDId uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
 	wD := workflow.WorkflowDefinition{}
-	result := pWRI.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Clauses(clause.Returning{}).
-		Where("id = ?", wDId).
+		Where("id = ?", workflowDefinitionID).
 		Unscoped().
 		Delete(&wD)
 	return wD, repository.CheckRowsAffected(result)
@@ -329,59 +317,79 @@ func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
 
 // WorkflowRun
 
-func (pWRI PostgresWorkflowRepositoryInternal) GetWorkflowRunById(
+func (repo PostgresWorkflowRepositoryInternal) CreateWorkflowRun(
 	ctx context.Context,
-	wRId uuid.UUID,
+	wR workflow.WorkflowRun,
 ) (workflow.WorkflowRun, error) {
-	wR := workflow.WorkflowRun{}
-	result := pWRI.database.WithContext(ctx).Where("id = ?", wRId).First(&wR)
+	result := repo.database.WithContext(ctx).Create(&wR)
 	return wR, result.Error
 }
 
-func (pWRI PostgresWorkflowRepositoryInternal) UpdateWorkflowRunById(
+func (repo PostgresWorkflowRepositoryInternal) GetWorkflowRunById(
 	ctx context.Context,
-	wRId uuid.UUID,
-	newWR map[string]any,
+	workflowRunId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := pWRI.database.WithContext(ctx).
-		Where("id = ?", wRId).
+	result := repo.database.WithContext(ctx).Where("id = ?", workflowRunId).First(&wR)
+	return wR, result.Error
+}
+
+func (repo PostgresWorkflowRepositoryInternal) UpdateWorkflowRunById(
+	ctx context.Context,
+	workflowRunId uuid.UUID,
+	newWorkflowRun map[string]any,
+) (workflow.WorkflowRun, error) {
+	wR := workflow.WorkflowRun{}
+	result := repo.database.WithContext(ctx).
+		Where("id = ?", workflowRunId).
 		Clauses(clause.Returning{}).
 		Model(&wR).
-		Updates(newWR)
+		Updates(newWorkflowRun)
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (pWRI PostgresWorkflowRepositoryInternal) HardDeleteWorkflowRun(
+func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflowRun(
 	ctx context.Context,
-	wRId uuid.UUID,
+	workflowRunId uuid.UUID,
 ) (workflow.WorkflowRun, error) {
 	wR := workflow.WorkflowRun{}
-	result := pWRI.database.WithContext(ctx).
+	result := repo.database.WithContext(ctx).
 		Clauses(clause.Returning{}).
-		Where("id = ?", wRId).
+		Where("id = ?", workflowRunId).
 		Unscoped().
 		Delete(&wR)
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (pWRI PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByIdAndStatusInternal(
+// func (repo PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByIdAndStatusInternal(
+// 	ctx context.Context,
+// 	workflowRunId uuid.UUID,
+// 	statuses []workflow.WorkflowRunStatus,
+// 	newWorkflowRun map[string]any,
+// ) (workflow.WorkflowRun, bool, error) {
+// 	wR := workflow.WorkflowRun{}
+// 	result := repo.database.WithContext(ctx).
+// 		Where("id = ? AND status IN ?", workflowRunId, statuses).
+// 		Clauses(clause.Returning{}).
+// 		Model(&wR).
+// 		Updates(newWorkflowRun)
+// 	if result.Error != nil {
+// 		return workflow.WorkflowRun{}, false, result.Error
+// 	}
+// 	if result.RowsAffected == 0 {
+// 		return workflow.WorkflowRun{}, false, nil
+// 	}
+// 	return wR, true, nil
+// }
+
+func (repo PostgresWorkflowRepositoryInternal) CountActiveWorkflowRunByWorkflowDefinition(
 	ctx context.Context,
-	wRId uuid.UUID,
-	statuses []workflow.WorkflowRunStatus,
-	newWR map[string]any,
-) (workflow.WorkflowRun, bool, error) {
-	wR := workflow.WorkflowRun{}
-	result := pWRI.database.WithContext(ctx).
-		Where("id = ? AND status IN ?", wRId, statuses).
-		Clauses(clause.Returning{}).
-		Model(&wR).
-		Updates(newWR)
-	if result.Error != nil {
-		return workflow.WorkflowRun{}, false, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return workflow.WorkflowRun{}, false, nil
-	}
-	return wR, true, nil
+	workflowDefinitionID uuid.UUID,
+) (int64, error) {
+	var count int64
+	result := repo.database.WithContext(ctx).
+		Where("workflow_definition_id = ? AND status = ?", workflowDefinitionID, workflow.WORKFLOW_RUN_RUNNING).
+		Model(&workflow.WorkflowRun{}).
+		Count(&count)
+	return count, result.Error
 }
