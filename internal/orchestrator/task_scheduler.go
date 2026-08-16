@@ -10,9 +10,9 @@ import (
 )
 
 type TaskScheduler struct {
-	orchestratorRepository OrchestratorRepository
-	taskPoller             TaskPoller
-	producer               message.Producer
+	repository OrchestratorRepository
+	taskPoller TaskPoller
+	producer   message.Producer
 }
 
 func NewTaskScheduler(taskPoller TaskPoller, producer message.Producer) *TaskScheduler {
@@ -37,7 +37,7 @@ func (taskScheduler *TaskScheduler) Run(ctx context.Context) {
 
 func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *task.TaskRun) error {
 	// Idempotency
-	ok, err := taskScheduler.orchestratorRepository.TaskRunIdempotency(
+	ok, err := taskScheduler.repository.TaskRunIdempotency(
 		ctx,
 		taskRun.ID,
 		task.TASK_RUN_QUEUED,
@@ -52,7 +52,7 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 	// Update TaskRun
 	input := map[string]string{}
 	if taskRun.Status == task.TASK_RUN_PENDING {
-		tRs, err := taskScheduler.orchestratorRepository.GetPredecessorTaskRuns(ctx, taskRun.ID)
+		tRs, err := taskScheduler.repository.GetPredecessorTaskRuns(ctx, taskRun.ID)
 		if err != nil {
 
 		}
@@ -64,7 +64,7 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 	if err != nil {
 	}
 
-	_, err = taskScheduler.orchestratorRepository.UpdateTaskRunById(
+	_, err = taskScheduler.repository.UpdateTaskRunByID(
 		ctx,
 		taskRun.ID,
 		map[string]any{"ScheduledAt": time.Now(), "Input": input_json},
@@ -75,7 +75,7 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 
 	// Create TaskAttempt
 
-	taskAttempt, err := taskScheduler.orchestratorRepository.CreateTaskAttempt(
+	taskAttempt, err := taskScheduler.repository.CreateTaskAttempt(
 		ctx,
 		task.TaskAttempt{TaskRunID: taskRun.ID, AttemptNumber: taskRun.RetryCount},
 	)

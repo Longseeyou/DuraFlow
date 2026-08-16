@@ -12,8 +12,8 @@ type Orchestrator struct {
 	orchestratorRepository OrchestratorRepository
 }
 
-func (oR *Orchestrator) RunWorkflow(ctx context.Context, wDId uuid.UUID) error {
-	wD, err := oR.orchestratorRepository.GetWorkflowDefinitionById(ctx, wDId)
+func (oR *Orchestrator) RunWorkflow(ctx context.Context, workflowDefinitionID uuid.UUID) error {
+	wD, err := oR.orchestratorRepository.GetWorkflowDefinitionByID(ctx, workflowDefinitionID)
 	if err != nil {
 
 	}
@@ -21,13 +21,13 @@ func (oR *Orchestrator) RunWorkflow(ctx context.Context, wDId uuid.UUID) error {
 
 	}
 
-	wR := workflow.WorkflowRun{WorkflowDefinitionID: wDId, Status: workflow.WORKFLOW_RUN_PENDING}
-	wR, err = oR.orchestratorRepository.CreateWorkflowRun(ctx, wR)
+	workflowRun := workflow.WorkflowRun{WorkflowDefinitionID: workflowDefinitionID, Status: workflow.WORKFLOW_RUN_PENDING}
+	workflowRun, err = oR.orchestratorRepository.CreateWorkflowRun(ctx, workflowRun)
 	if err != nil {
 
 	}
 
-	tDs, err := oR.orchestratorRepository.GetTaskDefinitionsByWorkflowDefinition(ctx, wDId)
+	tDs, err := oR.orchestratorRepository.GetTaskDefinitionsByWorkflowDefinition(ctx, workflowDefinitionID)
 	if err != nil {
 
 	}
@@ -35,7 +35,7 @@ func (oR *Orchestrator) RunWorkflow(ctx context.Context, wDId uuid.UUID) error {
 		oR.orchestratorRepository.CreateTaskRun(
 			ctx,
 			task.TaskRun{
-				WorkflowRunID:    wR.ID,
+				WorkflowRunID:    workflowRun.ID,
 				TaskDefinitionID: tD.ID,
 				Status:           task.TASK_RUN_PENDING,
 			},

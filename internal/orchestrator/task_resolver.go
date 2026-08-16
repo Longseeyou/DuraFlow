@@ -10,15 +10,15 @@ import (
 )
 
 type TaskResolver struct {
-	orchestratorRepository OrchestratorRepository
-	consumer               message.Consumer
+	repository OrchestratorRepository
+	consumer   message.Consumer
 }
 
 func NewTaskResolver(
-	orchestratorRepository OrchestratorRepository,
+	repository OrchestratorRepository,
 	consumer message.Consumer,
 ) *TaskResolver {
-	return &TaskResolver{orchestratorRepository: orchestratorRepository, consumer: consumer}
+	return &TaskResolver{repository: repository, consumer: consumer}
 }
 
 func (taskResolver *TaskResolver) Run(ctx context.Context) {
@@ -49,7 +49,7 @@ func (taskResolver *TaskResolver) ResolveTaskCommandResponse(
 	}
 
 	// Idempotency
-	ok, err := taskResolver.orchestratorRepository.TaskAttemptIdempotency(
+	ok, err := taskResolver.repository.TaskAttemptIdempotency(
 		ctx,
 		tCResponse.TaskAttemptID,
 		task.TaskRunStatus(tCResponse.Status),
@@ -62,7 +62,7 @@ func (taskResolver *TaskResolver) ResolveTaskCommandResponse(
 	}
 
 	// Update TaskAttempt
-	taskAttempt, err := taskResolver.orchestratorRepository.UpdateTaskAttemptById(
+	taskAttempt, err := taskResolver.repository.UpdateTaskAttemptByID(
 		ctx,
 		tCResponse.TaskAttemptID,
 		map[string]any{"Log": tCResponse.Log},
@@ -83,7 +83,7 @@ func (taskResolver *TaskResolver) ResolveTaskCommandResponse(
 		newTR["Status"] = task.TASK_RUN_FAILED
 	}
 
-	_, err = taskResolver.orchestratorRepository.UpdateTaskRunById(
+	_, err = taskResolver.repository.UpdateTaskRunByID(
 		ctx,
 		tCResponse.TaskAttemptID,
 		newTR,
