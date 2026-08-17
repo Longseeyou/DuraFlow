@@ -31,19 +31,23 @@ func main() {
 		envPointer("KAFKA_SASL_PASS"),
 	)
 
-	commandTopic := envString("TASK_COMMAND_TOPIC", "TaskCommandRequest")
-	eventTopic := envString("TASK_EVENT_TOPIC", orchestrator.DefaultTaskEventTopic)
-	workflowRunTopic := envString("WORKFLOW_RUN_TOPIC", orchestrator.DefaultWorkflowRunTopic)
-
 	consumer := kafka.NewKafkaConsumer(
 		envString("ORCHESTRATOR_ID", "orchestrator-0"),
 		&kafkaConfig,
 		envString("ORCHESTRATOR_GROUP_ID", "orchestrator"),
-		[]string{workflowRunTopic, eventTopic},
+		[]string{orchestrator.TaskCommandResponseTopic},
 	)
-	producer := kafka.NewKafkaProducer(envString("ORCHESTRATOR_PRODUCER_ID", "orchestrator-0"), &kafkaConfig)
+	producer := kafka.NewKafkaProducer(
+		envString("ORCHESTRATOR_PRODUCER_ID", "orchestrator-0"),
+		&kafkaConfig,
+	)
 
-	db, err := gorm.Open(postgres.Open(envString("DATABASE_DSN", "host=localhost user=gorm password=gorm dbname=duraflow")), &gorm.Config{})
+	db, err := gorm.Open(
+		postgres.Open(
+			envString("DATABASE_DSN", "host=localhost user=gorm password=gorm dbname=duraflow"),
+		),
+		&gorm.Config{},
+	)
 	if err != nil {
 		slog.Error("connect database", "error", err)
 		os.Exit(1)
@@ -52,6 +56,16 @@ func main() {
 		slog.Error("migrate database", "error", err)
 		os.Exit(1)
 	}
+
+	if err := consumer.Start(ctx); err != nil {
+		slog.Error("start consumer", "error", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := consumer.Stop(); err != nil {
+			slog.Error("stop consumer", "error", err)
+		}
+	}()
 
 	if err := producer.Start(ctx); err != nil {
 		slog.Error("start producer", "error", err)
@@ -63,28 +77,26 @@ func main() {
 		}
 	}()
 
-	repositories := postgresql.NewPostgresOrchestratorRepositories(db)
-	taskPublisher := kafka.NewTaskPublisher(producer, commandTopic)
-	service := orchestrator.NewService(repositories.Workflows, repositories.Tasks, taskPublisher)
-	scheduler := orchestrator.NewScheduler(
-		service,
-		consumer,
-		orchestrator.WithSchedulerTopics([]string{workflowRunTopic}, []string{eventTopic}),
-	)
+	repository := postgresql.NewPostgresOrchestratorRepository(db)
+	taskPoller := postgresql.NewPostgresTaskPoller(db)
+
+	scheduler := orchestrator.NewTaskScheduler(repository, taskPoller, producer)
+	taskResolver := orchestrator.NewTaskResolver(repository, consumer)
+	orch := orchestrator.NewOrchestrator(repository)
 
 	slog.Info(
 		"orchestrator started",
-		"workflow_run_topic",
-		workflowRunTopic,
-		"task_event_topic",
-		eventTopic,
 		"task_command_topic",
-		commandTopic,
+		orchestrator.TaskCommandRequestTopic,
+		"task_command_response_topic",
+		orchestrator.TaskCommandResponseTopic,
 	)
-	if err := scheduler.Start(ctx); err != nil {
-		slog.Error("run scheduler", "error", err)
-		os.Exit(1)
-	}
+
+	go scheduler.Run(ctx)
+	go orch.ResolveTimeoutTaskRun(ctx)
+	taskResolver.Run(ctx)
+
+	slog.Info("orchestrator stopped")
 }
 
 func migrate(db *gorm.DB) error {
@@ -97,7 +109,7 @@ func migrate(db *gorm.DB) error {
 		&task.TaskDependency{},
 		&task.TaskRun{},
 		&task.TaskAttempt{},
-		&task.TaskEvent{},
+		// &task.TaskEvent{},
 	)
 }
 
