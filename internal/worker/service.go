@@ -123,6 +123,7 @@ func (w Worker) ExecuteTaskCommandRequest(
 		TaskRunID:     tR.ID,
 		AttemptNumber: tCRequest.AttemptNumber,
 		WorkerID:      w.workerID,
+		ScheduledAt:   tCRequest.ScheduledAt,
 		StartedAt:     startedAt,
 		EndedAt:       endedAt,
 		Log:           &taskLog,
