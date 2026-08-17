@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/IBM/sarama"
-	"github.com/Longseeyou/DuraFlow/internal/shared/message"
+	"github.com/Longseeyou/DuraFlow/internal/message"
 )
 
 type kafkaProducer struct {
@@ -75,15 +75,15 @@ func (p *kafkaProducer) SendMessage(
 		Value: sarama.ByteEncoder(value),
 	}
 
-	slog.Info(
-		"Sending message to Kafka",
-		"topic",
-		topic,
-		"key",
-		string(key),
-		"value",
-		string(value),
-	)
+	// slog.Info(
+	// 	"Sending message to Kafka",
+	// 	"topic",
+	// 	topic,
+	// 	"key",
+	// 	string(key),
+	// 	"value",
+	// 	string(value),
+	// )
 
 	partition, offset, err := (*p.producer).SendMessage(msg)
 	if err != nil {

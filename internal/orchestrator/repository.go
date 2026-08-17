@@ -9,6 +9,8 @@ import (
 )
 
 type OrchestratorRepository interface {
+	WorkflowDefinitionStore
+
 	WorkflowDefinitionStoreInternal
 	WorkflowRunStoreInternal
 
@@ -16,6 +18,15 @@ type OrchestratorRepository interface {
 	TaskDependencyStoreInternal
 	TaskRunStoreInternal
 	TaskAttemptStoreInternal
+}
+
+type WorkflowDefinitionStore interface {
+	UpdateWorkflowDefinitionByUserAndID(
+		ctx context.Context,
+		userID uuid.UUID,
+		workflowDefinitionID uuid.UUID,
+		newWorkflowDefinition map[string]any,
+	) (workflow.WorkflowDefinition, error)
 }
 
 type WorkflowDefinitionStoreInternal interface {
@@ -32,8 +43,6 @@ type WorkflowRunStoreInternal interface {
 	) (workflow.WorkflowRun, error)
 }
 
-//
-
 type TaskDefinitionStoreInternal interface {
 	GetTaskDefinitionByID(
 		ctx context.Context,
@@ -46,22 +55,16 @@ type TaskDefinitionStoreInternal interface {
 }
 
 type TaskDependencyStoreInternal interface {
-	// GetTaskDependenciesByWorkflowDefinition(
-	// 	ctx context.Context,
-	// 	workflowDefinitionID uuid.UUID,
-	// ) ([]task.TaskDependency, error)
 }
 
 type TaskRunStoreInternal interface {
 	CreateTaskRun(ctx context.Context, tR task.TaskRun) (task.TaskRun, error)
 	GetTaskRunByID(ctx context.Context, taskRunID uuid.UUID) (task.TaskRun, error)
-	// GetTaskRunsByWorkflowRunID(ctx context.Context, workflowRunID uuid.UUID) ([]TaskRun, error)
 	UpdateTaskRunByID(
 		ctx context.Context,
 		taskRunID uuid.UUID,
 		newTR map[string]any,
 	) (task.TaskRun, error)
-	// HardDeleteTaskRun(ctx context.Context, taskRunID uuid.UUID) (TaskRun, error)
 	TaskRunIdempotency(
 		ctx context.Context,
 		taskRunID uuid.UUID,
@@ -78,9 +81,5 @@ type TaskAttemptStoreInternal interface {
 		taskAttemptID uuid.UUID,
 		newTA map[string]any,
 	) (task.TaskAttempt, error)
-	TaskAttemptIdempotency(
-		ctx context.Context,
-		taskAttemptID uuid.UUID,
-		newStatus task.TaskAttemptStatus,
-	) (bool, error)
+	GetTimedOutTaskRuns(ctx context.Context) ([]task.TaskRun, error)
 }

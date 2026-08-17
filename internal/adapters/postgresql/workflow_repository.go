@@ -16,10 +16,10 @@ type PostgresWorkflowRepository struct {
 }
 
 func NewPostgresWorkflowRepository(database *gorm.DB) workflow.WorkflowRepository {
-	return PostgresWorkflowRepository{database: database}
+	return &PostgresWorkflowRepository{database: database}
 }
 
-func (repo PostgresWorkflowRepository) CreateWorkflow(
+func (repo *PostgresWorkflowRepository) CreateWorkflow(
 	ctx context.Context,
 	w workflow.Workflow,
 ) (workflow.Workflow, error) {
@@ -27,7 +27,7 @@ func (repo PostgresWorkflowRepository) CreateWorkflow(
 	return w, result.Error
 }
 
-func (repo PostgresWorkflowRepository) GetWorkflowsByUser(
+func (repo *PostgresWorkflowRepository) GetWorkflowsByUser(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]workflow.Workflow, error) {
@@ -36,7 +36,7 @@ func (repo PostgresWorkflowRepository) GetWorkflowsByUser(
 	return w, result.Error
 }
 
-func (repo PostgresWorkflowRepository) GetWorkflowByUserAndID(
+func (repo *PostgresWorkflowRepository) GetWorkflowByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowID uuid.UUID,
@@ -48,7 +48,7 @@ func (repo PostgresWorkflowRepository) GetWorkflowByUserAndID(
 	return w, result.Error
 }
 
-func (repo PostgresWorkflowRepository) UpdateWorkflowByUserAndID(
+func (repo *PostgresWorkflowRepository) UpdateWorkflowByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowID uuid.UUID,
@@ -63,7 +63,7 @@ func (repo PostgresWorkflowRepository) UpdateWorkflowByUserAndID(
 	return w, repository.CheckRowsAffected(result)
 }
 
-func (repo PostgresWorkflowRepository) SoftDeleteWorkflow(
+func (repo *PostgresWorkflowRepository) SoftDeleteWorkflow(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowID uuid.UUID,
@@ -78,7 +78,7 @@ func (repo PostgresWorkflowRepository) SoftDeleteWorkflow(
 
 // WorkflowDefinition
 
-func (repo PostgresWorkflowRepository) CreateWorkflowDefinition(
+func (repo *PostgresWorkflowRepository) CreateWorkflowDefinition(
 	ctx context.Context,
 	wD workflow.WorkflowDefinition,
 ) (workflow.WorkflowDefinition, error) {
@@ -86,7 +86,7 @@ func (repo PostgresWorkflowRepository) CreateWorkflowDefinition(
 	return wD, result.Error
 }
 
-func (repo PostgresWorkflowRepository) GetWorkflowDefinitionsByWorkflow(
+func (repo *PostgresWorkflowRepository) GetWorkflowDefinitionsByWorkflow(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowID uuid.UUID,
@@ -99,7 +99,7 @@ func (repo PostgresWorkflowRepository) GetWorkflowDefinitionsByWorkflow(
 	return wD, result.Error
 }
 
-func (repo PostgresWorkflowRepository) GetWorkflowDefinitionByUserAndID(
+func (repo *PostgresWorkflowRepository) GetWorkflowDefinitionByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
@@ -112,7 +112,7 @@ func (repo PostgresWorkflowRepository) GetWorkflowDefinitionByUserAndID(
 	return wD, result.Error
 }
 
-func (repo PostgresWorkflowRepository) filterWorkflowByUserAndID(
+func (repo *PostgresWorkflowRepository) filterWorkflowByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
@@ -126,7 +126,7 @@ func (repo PostgresWorkflowRepository) filterWorkflowByUserAndID(
 		Where("workflow_definitions.id = ?", workflowDefinitionID)
 }
 
-func (repo PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndID(
+func (repo *PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
@@ -155,7 +155,7 @@ func (repo PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndID(
 	return wD, repository.CheckRowsAffected(result)
 }
 
-func (repo PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
+func (repo *PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
@@ -169,7 +169,7 @@ func (repo PostgresWorkflowRepository) SoftDeleteWorkflowDefinition(
 
 // WorkflowRun
 
-func (repo PostgresWorkflowRepository) GetWorkflowRunsByWorkflowDefinition(
+func (repo *PostgresWorkflowRepository) GetWorkflowRunsByWorkflowDefinition(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
@@ -183,7 +183,7 @@ func (repo PostgresWorkflowRepository) GetWorkflowRunsByWorkflowDefinition(
 	return wR, result.Error
 }
 
-func (repo PostgresWorkflowRepository) GetWorkflowRunByUserAndID(
+func (repo *PostgresWorkflowRepository) GetWorkflowRunByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowRunID uuid.UUID,
@@ -196,7 +196,7 @@ func (repo PostgresWorkflowRepository) GetWorkflowRunByUserAndID(
 	return wR, result.Error
 }
 
-func (repo PostgresWorkflowRepository) filterWorkflowRunByUserAndID(
+func (repo *PostgresWorkflowRepository) filterWorkflowRunByUserAndID(
 	ctx context.Context, userID uuid.UUID,
 	workflowRunID uuid.UUID,
 ) *gorm.DB {
@@ -210,7 +210,7 @@ func (repo PostgresWorkflowRepository) filterWorkflowRunByUserAndID(
 		Where("workflow_runs.id = ?", workflowRunID)
 }
 
-func (repo PostgresWorkflowRepository) UpdateWorkflowRunByUserAndID(
+func (repo *PostgresWorkflowRepository) UpdateWorkflowRunByUserAndID(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowRunID uuid.UUID,
@@ -224,7 +224,7 @@ func (repo PostgresWorkflowRepository) UpdateWorkflowRunByUserAndID(
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (repo PostgresWorkflowRepository) SoftDeleteWorkflowRun(
+func (repo *PostgresWorkflowRepository) SoftDeleteWorkflowRun(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowRunID uuid.UUID,
@@ -236,7 +236,7 @@ func (repo PostgresWorkflowRepository) SoftDeleteWorkflowRun(
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (repo PostgresWorkflowRepository) CountActiveWorkflowRunByUserAndWorkflowDefinition(
+func (repo *PostgresWorkflowRepository) CountActiveWorkflowRunByUserAndWorkflowDefinition(
 	ctx context.Context,
 	userID uuid.UUID,
 	workflowDefinitionID uuid.UUID,
@@ -257,12 +257,12 @@ type PostgresWorkflowRepositoryInternal struct {
 }
 
 func NewPostgresWorkflowRepositoryInternal(database *gorm.DB) workflow.WorkflowRepositoryInternal {
-	return PostgresWorkflowRepositoryInternal{database: database}
+	return &PostgresWorkflowRepositoryInternal{database: database}
 }
 
 // Workflow
 
-func (repo PostgresWorkflowRepositoryInternal) GetWorkflowByID(
+func (repo *PostgresWorkflowRepositoryInternal) GetWorkflowByID(
 	ctx context.Context,
 	workflowID uuid.UUID,
 ) (workflow.Workflow, error) {
@@ -271,7 +271,7 @@ func (repo PostgresWorkflowRepositoryInternal) GetWorkflowByID(
 	return w, result.Error
 }
 
-func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
+func (repo *PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
 	ctx context.Context,
 	workflowID uuid.UUID,
 ) (workflow.Workflow, error) {
@@ -286,7 +286,7 @@ func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflow(
 
 // WorkflowDefinition
 
-func (repo PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionByID(
+func (repo *PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionByID(
 	ctx context.Context,
 	workflowDefinitionID uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
@@ -295,7 +295,7 @@ func (repo PostgresWorkflowRepositoryInternal) GetWorkflowDefinitionByID(
 	return wD, result.Error
 }
 
-func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
+func (repo *PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
 	ctx context.Context,
 	workflowDefinitionID uuid.UUID,
 ) (workflow.WorkflowDefinition, error) {
@@ -310,7 +310,7 @@ func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflowDefinition(
 
 // WorkflowRun
 
-func (repo PostgresWorkflowRepositoryInternal) CreateWorkflowRun(
+func (repo *PostgresWorkflowRepositoryInternal) CreateWorkflowRun(
 	ctx context.Context,
 	wR workflow.WorkflowRun,
 ) (workflow.WorkflowRun, error) {
@@ -318,7 +318,7 @@ func (repo PostgresWorkflowRepositoryInternal) CreateWorkflowRun(
 	return wR, result.Error
 }
 
-func (repo PostgresWorkflowRepositoryInternal) GetWorkflowRunByID(
+func (repo *PostgresWorkflowRepositoryInternal) GetWorkflowRunByID(
 	ctx context.Context,
 	workflowRunID uuid.UUID,
 ) (workflow.WorkflowRun, error) {
@@ -327,7 +327,7 @@ func (repo PostgresWorkflowRepositoryInternal) GetWorkflowRunByID(
 	return wR, result.Error
 }
 
-func (repo PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByID(
+func (repo *PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByID(
 	ctx context.Context,
 	workflowRunID uuid.UUID,
 	newWorkflowRun map[string]any,
@@ -341,7 +341,7 @@ func (repo PostgresWorkflowRepositoryInternal) UpdateWorkflowRunByID(
 	return wR, repository.CheckRowsAffected(result)
 }
 
-func (repo PostgresWorkflowRepositoryInternal) HardDeleteWorkflowRun(
+func (repo *PostgresWorkflowRepositoryInternal) HardDeleteWorkflowRun(
 	ctx context.Context,
 	workflowRunID uuid.UUID,
 ) (workflow.WorkflowRun, error) {

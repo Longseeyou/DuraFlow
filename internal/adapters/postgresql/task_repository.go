@@ -2,7 +2,6 @@ package postgresql
 
 import (
 	"context"
-	"errors"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/repository"
 	"github.com/Longseeyou/DuraFlow/internal/task"
@@ -494,14 +493,14 @@ func (repo *PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunID(
 func (repo *PostgresTaskRepositoryInternal) UpdateTaskRunByID(
 	ctx context.Context,
 	taskRunID uuid.UUID,
-	newTR map[string]any,
+	newTaskRun map[string]any,
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
 	result := repo.database.WithContext(ctx).
 		Where("id = ?", taskRunID).
 		Clauses(clause.Returning{}).
 		Model(&tR).
-		Updates(newTR)
+		Updates(newTaskRun)
 	return tR, repository.CheckRowsAffected(result)
 }
 
@@ -532,6 +531,25 @@ func (repo *PostgresTaskRepositoryInternal) TaskRunIdempotency(
 	return result.RowsAffected == 1, result.Error
 }
 
+func (repo *PostgresTaskRepositoryInternal) MarkTaskRunRunning(
+	ctx context.Context,
+	taskRunID uuid.UUID,
+	attemptNumber uint,
+) (bool, error) {
+	var tR task.TaskRun
+	result := repo.database.WithContext(ctx).
+		Where(
+			"id = ? AND status = ? AND retry_count = ?",
+			taskRunID,
+			task.TASK_RUN_QUEUED,
+			attemptNumber-1,
+		).
+		Clauses(clause.Returning{}).
+		Model(&tR).
+		Updates(map[string]any{"status": task.TASK_RUN_RUNNING})
+	return result.RowsAffected == 1, result.Error
+}
+
 func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskRuns(
 	ctx context.Context,
 	taskRunID uuid.UUID,
@@ -548,10 +566,21 @@ func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskRuns(
 
 func (repo *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	ctx context.Context,
-	tA task.TaskAttempt,
+	taskAttempt task.TaskAttempt,
 ) (task.TaskAttempt, error) {
-	result := repo.database.WithContext(ctx).Create(&tA)
-	return tA, result.Error
+	result := repo.database.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "task_run_id"},
+				{Name: "attempt_number"},
+			},
+			DoNothing: true,
+		}).
+		Create(&taskAttempt)
+	if result.RowsAffected == 0 {
+		return taskAttempt, nil
+	}
+	return taskAttempt, result.Error
 }
 
 func (repo *PostgresTaskRepositoryInternal) HardDeleteTaskAttempt(
@@ -582,47 +611,23 @@ func (repo *PostgresTaskRepositoryInternal) GetTaskAttemptByTaskRunAndNumber(
 func (repo *PostgresTaskRepositoryInternal) UpdateTaskAttemptByID(
 	ctx context.Context,
 	taskAttemptID uuid.UUID,
-	newTA map[string]any,
+	newTaskAttempt map[string]any,
 ) (task.TaskAttempt, error) {
 	var tA task.TaskAttempt
 	result := repo.database.WithContext(ctx).
 		Where("id = ?", taskAttemptID).
 		Clauses(clause.Returning{}).
 		Model(&tA).
-		Updates(newTA)
+		Updates(newTaskAttempt)
 	return tA, repository.CheckRowsAffected(result)
 }
 
-func (repo *PostgresTaskRepositoryInternal) TaskAttemptIdempotency(
+func (repo *PostgresTaskRepositoryInternal) GetTimedOutTaskRuns(
 	ctx context.Context,
-	taskAttemptID uuid.UUID,
-	newStatus task.TaskAttemptStatus,
-) (bool, error) {
-	var tA task.TaskAttempt
+) ([]task.TaskRun, error) {
+	var tRs []task.TaskRun
 	result := repo.database.WithContext(ctx).
-		Where("id = ? AND status IN ?", taskAttemptID, task.ValidPreviousTaskAttemptStatus(newStatus)).
-		Clauses(clause.Returning{}).
-		Model(&tA).
-		Updates(map[string]any{"status": newStatus})
-	return result.RowsAffected == 1, result.Error
-}
-
-func (repo *PostgresTaskRepositoryInternal) TaskEventExists(
-	ctx context.Context,
-	taskEventID uuid.UUID,
-) (bool, error) {
-	var event task.TaskEvent
-	result := repo.database.WithContext(ctx).Select("id").Where("id = ?", taskEventID).First(&event)
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return false, nil
-	}
-	return result.Error == nil, result.Error
-}
-
-func (repo *PostgresTaskRepositoryInternal) CreateTaskEvent(
-	ctx context.Context,
-	taskEvent task.TaskEvent,
-) (task.TaskEvent, error) {
-	result := repo.database.WithContext(ctx).Create(&taskEvent)
-	return taskEvent, result.Error
+		Where("status = ? AND timeout_at < CURRENT_TIMESTAMP", task.TASK_RUN_RUNNING).
+		Find(&tRs)
+	return tRs, result.Error
 }

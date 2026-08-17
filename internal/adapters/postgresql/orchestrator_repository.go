@@ -5,12 +5,19 @@ import (
 )
 
 type PostgresOrchestratorRepository struct {
-	PostgresTaskRepositoryInternal
+	PostgresWorkflowRepository
+
 	PostgresWorkflowRepositoryInternal
+	PostgresTaskRepositoryInternal
 }
 
-func NewPostgresOrchestratorRepository(database *gorm.DB) *PostgresOrchestratorRepository {
+func NewPostgresOrchestratorRepository(
+	database *gorm.DB,
+) *PostgresOrchestratorRepository {
 	return &PostgresOrchestratorRepository{
+		PostgresWorkflowRepository: PostgresWorkflowRepository{
+			database: database,
+		},
 		PostgresTaskRepositoryInternal: PostgresTaskRepositoryInternal{
 			database: database,
 		},

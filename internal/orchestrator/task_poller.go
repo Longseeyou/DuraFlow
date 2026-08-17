@@ -7,5 +7,5 @@ import (
 )
 
 type TaskPoller interface {
-	PollTaskRun(ctx context.Context) ([]task.TaskRun, error)
+	PollTaskRun(ctx context.Context, numberOfTasks uint) ([]task.TaskRun, error)
 }

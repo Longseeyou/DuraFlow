@@ -2,7 +2,8 @@ package orchestrator
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/Longseeyou/DuraFlow/internal/task"
 	"github.com/Longseeyou/DuraFlow/internal/workflow"
@@ -10,48 +11,58 @@ import (
 )
 
 type Orchestrator struct {
-	orchestratorRepository OrchestratorRepository
+	repository             OrchestratorRepository
+	resolveTimeoutInterval time.Duration
 }
 
-func NewOrchestrator(orchestratorRepository OrchestratorRepository) *Orchestrator {
-	return &Orchestrator{orchestratorRepository: orchestratorRepository}
+const defaultResolveTimeoutInterval = 5 * time.Second
+
+func NewOrchestrator(repository OrchestratorRepository) *Orchestrator {
+	return &Orchestrator{
+		repository:             repository,
+		resolveTimeoutInterval: defaultResolveTimeoutInterval,
+	}
 }
 
-func (oR *Orchestrator) RunWorkflow(ctx context.Context, workflowDefinitionID uuid.UUID) error {
-	wD, err := oR.orchestratorRepository.GetWorkflowDefinitionByID(ctx, workflowDefinitionID)
+func (orchestrator *Orchestrator) RunWorkflow(
+	ctx context.Context,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
+) error {
+	wD, err := orchestrator.repository.UpdateWorkflowDefinitionByUserAndID(
+		ctx,
+		userID,
+		workflowDefinitionID,
+		map[string]any{"status": workflow.WORKFLOW_DEFINITION_RUNNING},
+	)
 	if err != nil {
 		return err
-	}
-	if wD.Status != workflow.WORKFLOW_DEFINITION_ACTIVATED {
-		return fmt.Errorf(
-			"workflow definition %s is not activated",
-			workflowDefinitionID,
-		)
 	}
 
 	workflowRun := workflow.WorkflowRun{
-		WorkflowDefinitionID: workflowDefinitionID,
+		WorkflowDefinitionID: wD.ID,
 		Status:               workflow.WORKFLOW_RUN_PENDING,
 	}
-	workflowRun, err = oR.orchestratorRepository.CreateWorkflowRun(ctx, workflowRun)
+	workflowRun, err = orchestrator.repository.CreateWorkflowRun(ctx, workflowRun)
 	if err != nil {
 		return err
 	}
 
-	tDs, err := oR.orchestratorRepository.GetTaskDefinitionsByWorkflowDefinition(
+	tDs, err := orchestrator.repository.GetTaskDefinitionsByWorkflowDefinition(
 		ctx,
-		workflowDefinitionID,
+		wD.ID,
 	)
 	if err != nil {
 		return err
 	}
 	for _, tD := range tDs {
-		_, err := oR.orchestratorRepository.CreateTaskRun(
+		_, err := orchestrator.repository.CreateTaskRun(
 			ctx,
 			task.TaskRun{
 				WorkflowRunID:    workflowRun.ID,
 				TaskDefinitionID: tD.ID,
 				Status:           task.TASK_RUN_PENDING,
+				MaxRetries:       10,
 			},
 		)
 		if err != nil {
@@ -62,8 +73,48 @@ func (oR *Orchestrator) RunWorkflow(ctx context.Context, workflowDefinitionID uu
 	return nil
 }
 
-func (oR *Orchestrator) ResolveTimeoutTaskRun() {
+func (orchestrator *Orchestrator) ResolveTimeoutTaskRun(ctx context.Context) {
+	ticker := time.NewTicker(orchestrator.resolveTimeoutInterval)
+	defer ticker.Stop()
 
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		tRs, err := orchestrator.repository.GetTimedOutTaskRuns(ctx)
+		if err != nil {
+			slog.Error("Orchestrator ResolveTimeoutTaskRun GetTimedOutTaskRuns", "error", err)
+			continue
+		}
+
+		for _, tR := range tRs {
+			ok, err := orchestrator.repository.TaskRunIdempotency(ctx, tR.ID, task.TASK_RUN_FAILED)
+			if err != nil {
+				slog.Error(
+					"Orchestrator ResolveTimeoutTaskRun",
+					"taskRunID",
+					tR.ID,
+					"error",
+					err,
+				)
+				continue
+			}
+			if !ok {
+				slog.Error(
+					"Orchestrator ResolveTimeoutTaskRun",
+					"taskRunID",
+					tR.ID,
+					"error",
+					"Idempotency",
+				)
+				continue
+			}
+			slog.Info("Orchestrator ResolveTimeoutTaskRun", "taskRunID", tR.ID)
+		}
+	}
 }
 
 func (oR *Orchestrator) ResolveDeadLetter() {

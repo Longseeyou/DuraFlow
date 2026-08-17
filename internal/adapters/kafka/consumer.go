@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/IBM/sarama"
-	"github.com/Longseeyou/DuraFlow/internal/shared/message"
+	"github.com/Longseeyou/DuraFlow/internal/message"
 )
 
 type kafkaConsumer struct {
@@ -121,16 +121,20 @@ func (h *consumerGroupHandler) ConsumeClaim(
 	claim sarama.ConsumerGroupClaim,
 ) error {
 	for msg := range claim.Messages() {
-		select {
-		case h.consumer.messages <- &message.Message{
+		m := &message.Message{
 			Topic:     msg.Topic,
 			Key:       msg.Key,
 			Value:     msg.Value,
 			Partition: msg.Partition,
 			Offset:    msg.Offset,
-		}:
-			session.MarkMessage(msg, "")
+		}
 
+		m.SetAck(func() {
+			session.MarkMessage(msg, "")
+		})
+
+		select {
+		case h.consumer.messages <- m:
 		case <-session.Context().Done():
 			return nil
 		}

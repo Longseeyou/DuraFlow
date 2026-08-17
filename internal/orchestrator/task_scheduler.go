@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Longseeyou/DuraFlow/internal/shared/message"
+	"github.com/Longseeyou/DuraFlow/internal/message"
 	"github.com/Longseeyou/DuraFlow/internal/task"
 )
 
@@ -49,7 +49,7 @@ func (taskScheduler *TaskScheduler) Run(ctx context.Context) {
 		case <-ticker.C:
 		}
 
-		taskRuns, err := taskScheduler.taskPoller.PollTaskRun(ctx)
+		taskRuns, err := taskScheduler.taskPoller.PollTaskRun(ctx, 10)
 		if err != nil {
 			slog.Error("TaskScheduler PollTaskRun", "error", err)
 			continue
@@ -71,6 +71,23 @@ func (taskScheduler *TaskScheduler) Run(ctx context.Context) {
 }
 
 func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *task.TaskRun) error {
+	// Dead letter when retries are exhausted
+	if taskRun.Status == task.TASK_RUN_FAILED && taskRun.RetryCount >= taskRun.MaxRetries {
+		ok, err := taskScheduler.repository.TaskRunIdempotency(
+			ctx,
+			taskRun.ID,
+			task.TASK_RUN_DEAD_LETTERED,
+		)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("task run %s cannot be dead lettered", taskRun.ID)
+		}
+		slog.Warn("ScheduleTask dead lettered", "taskRunID", taskRun.ID)
+		return nil
+	}
+
 	// Idempotency
 	ok, err := taskScheduler.repository.TaskRunIdempotency(
 		ctx,
@@ -91,62 +108,52 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 	}
 
 	// Update TaskRun
-	newTaskRun := map[string]any{"scheduled_at": time.Now()}
+	newTaskRun := map[string]any{}
 	if taskRun.Status == task.TASK_RUN_PENDING {
-		tRs, err := taskScheduler.repository.GetPredecessorTaskRuns(ctx, taskRun.ID)
-		if err != nil {
-			return err
-		}
-
-		input := map[string]string{}
-		for _, tR := range tRs {
-			if tR.Output == nil {
-				continue
-			}
-
-			tDp, err := taskScheduler.repository.GetTaskDefinitionByID(
-				ctx,
-				tR.TaskDefinitionID,
-			)
-			if err != nil {
-				return err
-			}
-
-			input[tDp.Name] = *tR.Output
-		}
-
-		inputJSON, err := json.Marshal(input)
-		if err != nil {
-			return err
-		}
-		newTaskRun["input"] = string(inputJSON)
+		newTaskRun["started_at"] = time.Now()
 	}
+
+	// Retrieve task's predecessors' output for input
+	// TODO: Only pull task's predecessors with new output
+	tRs, err := taskScheduler.repository.GetPredecessorTaskRuns(ctx, taskRun.ID)
+	if err != nil {
+		return err
+	}
+
+	input := map[string]string{}
+	for _, tR := range tRs {
+		if tR.Output == nil {
+			continue
+		}
+
+		tDp, err := taskScheduler.repository.GetTaskDefinitionByID(
+			ctx,
+			tR.TaskDefinitionID,
+		)
+		if err != nil {
+			return err
+		}
+
+		input[tDp.Name] = *tR.Output
+	}
+
+	inputJSON, err := json.Marshal(input)
+	if err != nil {
+		return err
+	}
+	newTaskRun["input"] = string(inputJSON)
 
 	tR, err := taskScheduler.repository.UpdateTaskRunByID(ctx, taskRun.ID, newTaskRun)
 	if err != nil {
 		return err
 	}
 
-	// Create TaskAttempt
-	taskAttempt, err := taskScheduler.repository.CreateTaskAttempt(
-		ctx,
-		task.TaskAttempt{
-			TaskRunID:     taskRun.ID,
-			AttemptNumber: taskRun.RetryCount,
-			Status:        task.TASK_ATTEMPT_QUEUED,
-		},
-	)
-	if err != nil {
-		return err
-	}
-
 	// Create TaskCommand
 	taskCommandRequest := task.TaskCommandRequest{
-		TaskRunID:     taskRun.ID,
-		TaskAttemptID: taskAttempt.ID,
+		TaskRunID:     tR.ID,
 		TaskType:      tD.TaskType,
-		Input:         tR.Input,
-		Timeout:       &tD.Timeout,
+		Timeout:       tD.Timeout,
+		AttemptNumber: tR.RetryCount + 1,
 	}
 
 	value, err := json.Marshal(taskCommandRequest)
@@ -163,6 +170,8 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 	if err != nil {
 		return err
 	}
+
+	slog.Info("ScheduleTask", "taskRunID", tR.ID, "attemptNumber", tR.RetryCount+1, "Name", tD.Name)
 
 	return nil
 }
