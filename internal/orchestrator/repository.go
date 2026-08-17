@@ -35,6 +35,10 @@ type WorkflowRunStoreInternal interface {
 //
 
 type TaskDefinitionStoreInternal interface {
+	GetTaskDefinitionByID(
+		ctx context.Context,
+		taskDefinitionID uuid.UUID,
+	) (task.TaskDefinition, error)
 	GetTaskDefinitionsByWorkflowDefinition(
 		ctx context.Context,
 		workflowDefinitionID uuid.UUID,
@@ -68,7 +72,6 @@ type TaskRunStoreInternal interface {
 }
 
 type TaskAttemptStoreInternal interface {
-	GetTaskAttemptID(ctx context.Context, taskAttemptID uuid.UUID) (task.TaskAttempt, error)
 	CreateTaskAttempt(ctx context.Context, tA task.TaskAttempt) (task.TaskAttempt, error)
 	UpdateTaskAttemptByID(
 		ctx context.Context,
@@ -77,7 +80,7 @@ type TaskAttemptStoreInternal interface {
 	) (task.TaskAttempt, error)
 	TaskAttemptIdempotency(
 		ctx context.Context,
-		taskRunID uuid.UUID,
-		newStatus task.TaskRunStatus,
+		taskAttemptID uuid.UUID,
+		newStatus task.TaskAttemptStatus,
 	) (bool, error)
 }

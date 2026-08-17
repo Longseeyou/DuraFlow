@@ -3,33 +3,68 @@ package orchestrator
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/message"
 	"github.com/Longseeyou/DuraFlow/internal/task"
 )
 
+const (
+	TaskCommandRequestTopic  = "TaskCommandRequest"
+	TaskCommandResponseTopic = "TaskCommandResponse"
+
+	defaultPollInterval = 500 * time.Millisecond
+)
+
 type TaskScheduler struct {
-	repository OrchestratorRepository
-	taskPoller TaskPoller
-	producer   message.Producer
+	repository   OrchestratorRepository
+	taskPoller   TaskPoller
+	producer     message.Producer
+	pollInterval time.Duration
 }
 
-func NewTaskScheduler(taskPoller TaskPoller, producer message.Producer) *TaskScheduler {
-	return &TaskScheduler{taskPoller: taskPoller, producer: producer}
+func NewTaskScheduler(
+	repository OrchestratorRepository,
+	taskPoller TaskPoller,
+	producer message.Producer,
+) *TaskScheduler {
+	return &TaskScheduler{
+		repository:   repository,
+		taskPoller:   taskPoller,
+		producer:     producer,
+		pollInterval: defaultPollInterval,
+	}
 }
 
 func (taskScheduler *TaskScheduler) Run(ctx context.Context) {
+	ticker := time.NewTicker(taskScheduler.pollInterval)
+	defer ticker.Stop()
+
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
 		taskRuns, err := taskScheduler.taskPoller.PollTaskRun(ctx)
 		if err != nil {
-
+			slog.Error("TaskScheduler PollTaskRun", "error", err)
+			continue
 		}
 
 		for _, taskRun := range taskRuns {
 			err := taskScheduler.ScheduleTask(ctx, &taskRun)
 			if err != nil {
-
+				slog.Error(
+					"TaskScheduler ScheduleTask",
+					"taskRunID",
+					taskRun.ID,
+					"error",
+					err,
+				)
 			}
 		}
 	}
@@ -43,65 +78,90 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 		task.TASK_RUN_QUEUED,
 	)
 	if err != nil {
-
+		return err
 	}
 	if !ok {
+		return fmt.Errorf("task run %s cannot be queued", taskRun.ID)
+	}
 
+	// Load TaskDefinition
+	tD, err := taskScheduler.repository.GetTaskDefinitionByID(ctx, taskRun.TaskDefinitionID)
+	if err != nil {
+		return err
 	}
 
 	// Update TaskRun
-	input := map[string]string{}
+	newTaskRun := map[string]any{"scheduled_at": time.Now()}
 	if taskRun.Status == task.TASK_RUN_PENDING {
 		tRs, err := taskScheduler.repository.GetPredecessorTaskRuns(ctx, taskRun.ID)
 		if err != nil {
-
+			return err
 		}
+
+		input := map[string]string{}
 		for _, tR := range tRs {
-			input[tR.TaskDefinition.Name] = *tR.Output
+			if tR.Output == nil {
+				continue
+			}
+
+			tDp, err := taskScheduler.repository.GetTaskDefinitionByID(
+				ctx,
+				tR.TaskDefinitionID,
+			)
+			if err != nil {
+				return err
+			}
+
+			input[tDp.Name] = *tR.Output
 		}
-	}
-	input_json, err := json.Marshal(input)
-	if err != nil {
+
+		inputJSON, err := json.Marshal(input)
+		if err != nil {
+			return err
+		}
+		newTaskRun["input"] = string(inputJSON)
 	}
 
-	_, err = taskScheduler.repository.UpdateTaskRunByID(
-		ctx,
-		taskRun.ID,
-		map[string]any{"ScheduledAt": time.Now(), "Input": input_json},
-	)
+	tR, err := taskScheduler.repository.UpdateTaskRunByID(ctx, taskRun.ID, newTaskRun)
 	if err != nil {
-
+		return err
 	}
 
 	// Create TaskAttempt
-
 	taskAttempt, err := taskScheduler.repository.CreateTaskAttempt(
 		ctx,
-		task.TaskAttempt{TaskRunID: taskRun.ID, AttemptNumber: taskRun.RetryCount},
+		task.TaskAttempt{
+			TaskRunID:     taskRun.ID,
+			AttemptNumber: taskRun.RetryCount,
+			Status:        task.TASK_ATTEMPT_QUEUED,
+		},
 	)
 	if err != nil {
-
+		return err
 	}
 
 	// Create TaskCommand
 	taskCommandRequest := task.TaskCommandRequest{
+		TaskRunID:     taskRun.ID,
 		TaskAttemptID: taskAttempt.ID,
-		TaskType:      taskRun.TaskDefinition.TaskType,
-		Input:         taskRun.Input,
-		Timeout:       &taskRun.TaskDefinition.Timeout,
+		TaskType:      tD.TaskType,
+		Input:         tR.Input,
+		Timeout:       &tD.Timeout,
 	}
 
 	value, err := json.Marshal(taskCommandRequest)
 	if err != nil {
+		return err
 	}
 
 	err = taskScheduler.producer.SendMessage(
 		ctx,
-		"TaskCommandRequest",
-		"TaskCommandRequest",
+		TaskCommandRequestTopic,
+		TaskCommandRequestTopic,
 		value,
 	)
 	if err != nil {
+		return err
 	}
 
 	return nil
