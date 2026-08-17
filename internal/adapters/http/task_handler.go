@@ -17,65 +17,60 @@ func NewTaskHandler(service task.TaskService) *TaskHandler {
 	return &TaskHandler{service: &service}
 }
 
-func (tH *TaskHandler) Routes() chi.Router {
+func (h *TaskHandler) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	return r
 }
 
-func (tH *TaskHandler) ProtectedRoutes() chi.Router {
+func (h *TaskHandler) ProtectedRoutes() chi.Router {
 	r := chi.NewRouter()
 
 	// TaskDefinition routes (nested under workflow_definition)
-	r.Route("/workflow_definition/{wDId}/task_definition", func(r chi.Router) {
-		r.Post("", tH.createTaskDefinition)
-		r.Get("", tH.getTaskDefinitionByWorkflowDefinition)
+	r.Route("/workflow_definition/{workflowDefinitionID}/task_definition", func(r chi.Router) {
+		r.Post("", h.createTaskDefinition)
+		r.Get("", h.getTaskDefinitionsByWorkflowDefinition)
 	})
 
-	r.Route("/task_definition/{tDId}", func(r chi.Router) {
-		r.Get("", tH.getTaskDefinitionByUserAndId)
-		r.Put("", tH.updateTaskDefinitionById)
-		r.Delete("", tH.deleteTaskDefinition)
+	r.Route("/task_definition/{taskDefinitionID}", func(r chi.Router) {
+		r.Get("", h.getTaskDefinitionByUserAndID)
+		r.Put("", h.updateTaskDefinitionByID)
+		r.Delete("", h.deleteTaskDefinition)
 	})
 
 	// TaskDependency routes
 	r.Route("/task_dependency", func(r chi.Router) {
-		r.Post("", tH.createTaskDependency)
+		r.Post("", h.createTaskDependency)
 	})
 
-	r.Route("/workflow_definition/{wDId}/task_dependency", func(r chi.Router) {
-		r.Get("", tH.getTaskDependencyByWorkflowDefinition)
+	r.Route("/workflow_definition/{workflowDefinitionID}/task_dependency", func(r chi.Router) {
+		r.Get("", h.getTaskDependencyByWorkflowDefinition)
 	})
 
-	r.Route("/task_dependency/{tDpId}", func(r chi.Router) {
-		r.Get("", tH.getTaskDependencyByUserAndId)
-		r.Put("", tH.updateTaskDependencyById)
-		r.Delete("", tH.deleteTaskDependency)
+	r.Route("/task_dependency/{taskDependencyID}", func(r chi.Router) {
+		r.Get("", h.getTaskDependencyByUserAndID)
+		r.Put("", h.updateTaskDependencyByID)
+		r.Delete("", h.deleteTaskDependency)
 	})
 
-	// TaskRun routes (nested under workflow_run)
-	r.Route("/workflow_run/{wRId}/task_definition/{tDId}/task_run", func(r chi.Router) {
-		r.Post("", tH.createTaskRun)
+	r.Route("/workflow_run/{workflowRunID}/task_run", func(r chi.Router) {
+		r.Get("", h.getTaskRunByWorkflowRun)
 	})
 
-	r.Route("/workflow_run/{wRId}/task_run", func(r chi.Router) {
-		r.Get("", tH.getTaskRunByWorkflowRun)
-	})
-
-	r.Route("/task_run/{tRId}", func(r chi.Router) {
-		r.Get("", tH.getTaskRunByUserAndId)
-		r.Put("", tH.updateTaskRunById)
-		r.Delete("", tH.deleteTaskRun)
+	r.Route("/task_run/{taskRunID}", func(r chi.Router) {
+		r.Get("", h.getTaskRunByUserAndID)
+		r.Put("", h.updateTaskRunByID)
+		r.Delete("", h.deleteTaskRun)
 
 		r.Route("/task_attempt", func(r chi.Router) {
-			r.Get("", tH.getTaskAttemptByTaskRun)
+			r.Get("", h.getTaskAttemptByTaskRun)
 		})
 	})
 
 	// TaskAttempt routes
-	r.Route("/task_attempt/{tAId}", func(r chi.Router) {
-		r.Get("", tH.getTaskAttemptByUserAndId)
-		r.Delete("", tH.deleteTaskAttempt)
+	r.Route("/task_attempt/{taskAttemptID}", func(r chi.Router) {
+		r.Get("", h.getTaskAttemptByUserAndID)
+		r.Delete("", h.deleteTaskAttempt)
 	})
 
 	return r
@@ -83,13 +78,13 @@ func (tH *TaskHandler) ProtectedRoutes() chi.Router {
 
 // TaskDefinition
 
-func (tH *TaskHandler) createTaskDefinition(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) createTaskDefinition(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
+	workflowDefinitionID, err := uuid.Parse(chi.URLParam(r, "workflowDefinitionID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -102,7 +97,12 @@ func (tH *TaskHandler) createTaskDefinition(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tDResponseDto, err := tH.service.CreateTaskDefinition(r.Context(), uId, wDId, tDRequestDto)
+	tDResponseDto, err := h.service.CreateTaskDefinition(
+		r.Context(),
+		userID,
+		workflowDefinitionID,
+		tDRequestDto,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -111,22 +111,26 @@ func (tH *TaskHandler) createTaskDefinition(w http.ResponseWriter, r *http.Reque
 	renderJSON(w, r, http.StatusOK, tDResponseDto)
 }
 
-func (tH *TaskHandler) getTaskDefinitionByWorkflowDefinition(
+func (h *TaskHandler) getTaskDefinitionsByWorkflowDefinition(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	uId, valid := userIDFromToken(w, r)
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
+	workflowDefinitionID, err := uuid.Parse(chi.URLParam(r, "workflowDefinitionID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDResponseDto, err := tH.service.GetTaskDefinitionByWorkflowDefinition(r.Context(), uId, wDId)
+	tDResponseDto, err := h.service.GetTaskDefinitionsByWorkflowDefinition(
+		r.Context(),
+		userID,
+		workflowDefinitionID,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -135,19 +139,23 @@ func (tH *TaskHandler) getTaskDefinitionByWorkflowDefinition(
 	renderJSON(w, r, http.StatusOK, tDResponseDto)
 }
 
-func (tH *TaskHandler) getTaskDefinitionByUserAndId(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) getTaskDefinitionByUserAndID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tDId, err := uuid.Parse(chi.URLParam(r, "tDId"))
+	taskDefinitionID, err := uuid.Parse(chi.URLParam(r, "taskDefinitionID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDResponseDto, err := tH.service.GetTaskDefinitionByUserAndId(r.Context(), uId, tDId)
+	tDResponseDto, err := h.service.GetTaskDefinitionByUserAndID(
+		r.Context(),
+		userID,
+		taskDefinitionID,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -156,13 +164,13 @@ func (tH *TaskHandler) getTaskDefinitionByUserAndId(w http.ResponseWriter, r *ht
 	renderJSON(w, r, http.StatusOK, tDResponseDto)
 }
 
-func (tH *TaskHandler) updateTaskDefinitionById(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) updateTaskDefinitionByID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tDId, err := uuid.Parse(chi.URLParam(r, "tDId"))
+	taskDefinitionID, err := uuid.Parse(chi.URLParam(r, "taskDefinitionID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -175,7 +183,12 @@ func (tH *TaskHandler) updateTaskDefinitionById(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tDResponseDto, err := tH.service.UpdateTaskDefinitionById(r.Context(), uId, tDId, tDRequestDto)
+	tDResponseDto, err := h.service.UpdateTaskDefinitionByID(
+		r.Context(),
+		userID,
+		taskDefinitionID,
+		tDRequestDto,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -184,19 +197,19 @@ func (tH *TaskHandler) updateTaskDefinitionById(w http.ResponseWriter, r *http.R
 	renderJSON(w, r, http.StatusOK, tDResponseDto)
 }
 
-func (tH *TaskHandler) deleteTaskDefinition(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) deleteTaskDefinition(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tDId, err := uuid.Parse(chi.URLParam(r, "tDId"))
+	taskDefinitionID, err := uuid.Parse(chi.URLParam(r, "taskDefinitionID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDResponseDto, err := tH.service.SoftDeleteTaskDefinition(r.Context(), uId, tDId)
+	tDResponseDto, err := h.service.SoftDeleteTaskDefinition(r.Context(), userID, taskDefinitionID)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -207,8 +220,8 @@ func (tH *TaskHandler) deleteTaskDefinition(w http.ResponseWriter, r *http.Reque
 
 // TaskDependency
 
-func (tH *TaskHandler) createTaskDependency(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) createTaskDependency(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
@@ -220,7 +233,7 @@ func (tH *TaskHandler) createTaskDependency(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	tDpResponseDto, err := tH.service.CreateTaskDependency(r.Context(), uId, tDpRequestDto)
+	tDpResponseDto, err := h.service.CreateTaskDependency(r.Context(), userID, tDpRequestDto)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -229,22 +242,26 @@ func (tH *TaskHandler) createTaskDependency(w http.ResponseWriter, r *http.Reque
 	renderJSON(w, r, http.StatusOK, tDpResponseDto)
 }
 
-func (tH *TaskHandler) getTaskDependencyByWorkflowDefinition(
+func (h *TaskHandler) getTaskDependencyByWorkflowDefinition(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	uId, valid := userIDFromToken(w, r)
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	wDId, err := uuid.Parse(chi.URLParam(r, "wDId"))
+	workflowDefinitionID, err := uuid.Parse(chi.URLParam(r, "workflowDefinitionID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDpResponseDto, err := tH.service.GetTaskDependencyByWorkflowDefinition(r.Context(), uId, wDId)
+	tDpResponseDto, err := h.service.GetTaskDependencyByWorkflowDefinition(
+		r.Context(),
+		userID,
+		workflowDefinitionID,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -253,19 +270,23 @@ func (tH *TaskHandler) getTaskDependencyByWorkflowDefinition(
 	renderJSON(w, r, http.StatusOK, tDpResponseDto)
 }
 
-func (tH *TaskHandler) getTaskDependencyByUserAndId(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) getTaskDependencyByUserAndID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tDpId, err := uuid.Parse(chi.URLParam(r, "tDpId"))
+	taskDependencyID, err := uuid.Parse(chi.URLParam(r, "taskDependencyID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDpResponseDto, err := tH.service.GetTaskDependencyByUserAndId(r.Context(), uId, tDpId)
+	tDpResponseDto, err := h.service.GetTaskDependencyByUserAndID(
+		r.Context(),
+		userID,
+		taskDependencyID,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -274,13 +295,13 @@ func (tH *TaskHandler) getTaskDependencyByUserAndId(w http.ResponseWriter, r *ht
 	renderJSON(w, r, http.StatusOK, tDpResponseDto)
 }
 
-func (tH *TaskHandler) updateTaskDependencyById(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) updateTaskDependencyByID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tDpId, err := uuid.Parse(chi.URLParam(r, "tDpId"))
+	taskDependencyID, err := uuid.Parse(chi.URLParam(r, "taskDependencyID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -293,10 +314,10 @@ func (tH *TaskHandler) updateTaskDependencyById(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	tDpResponseDto, err := tH.service.UpdateTaskDependencyById(
+	tDpResponseDto, err := h.service.UpdateTaskDependencyByID(
 		r.Context(),
-		uId,
-		tDpId,
+		userID,
+		taskDependencyID,
 		tDpRequestDto,
 	)
 	if err != nil {
@@ -307,19 +328,23 @@ func (tH *TaskHandler) updateTaskDependencyById(w http.ResponseWriter, r *http.R
 	renderJSON(w, r, http.StatusOK, tDpResponseDto)
 }
 
-func (tH *TaskHandler) deleteTaskDependency(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) deleteTaskDependency(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tDpId, err := uuid.Parse(chi.URLParam(r, "tDpId"))
+	taskDependencyID, err := uuid.Parse(chi.URLParam(r, "taskDependencyID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDpResponseDto, err := tH.service.SoftDeleteTaskDependency(r.Context(), uId, tDpId)
+	tDpResponseDto, err := h.service.SoftDeleteTaskDependency(
+		r.Context(),
+		userID,
+		taskDependencyID,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -330,19 +355,55 @@ func (tH *TaskHandler) deleteTaskDependency(w http.ResponseWriter, r *http.Reque
 
 // TaskRun
 
-func (tH *TaskHandler) createTaskRun(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) getTaskRunByWorkflowRun(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	wRId, err := uuid.Parse(chi.URLParam(r, "wRId"))
+	workflowRunID, err := uuid.Parse(chi.URLParam(r, "workflowRunID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tDId, err := uuid.Parse(chi.URLParam(r, "tDId"))
+	tRResponseDto, err := h.service.GetTaskRunByWorkflowRun(r.Context(), userID, workflowRunID)
+	if err != nil {
+		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	renderJSON(w, r, http.StatusOK, tRResponseDto)
+}
+
+func (h *TaskHandler) getTaskRunByUserAndID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
+	if !valid {
+		return
+	}
+
+	taskRunID, err := uuid.Parse(chi.URLParam(r, "taskRunID"))
+	if err != nil {
+		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	tRResponseDto, err := h.service.GetTaskRunByUserAndID(r.Context(), userID, taskRunID)
+	if err != nil {
+		renderError(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	renderJSON(w, r, http.StatusOK, tRResponseDto)
+}
+
+func (h *TaskHandler) updateTaskRunByID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
+	if !valid {
+		return
+	}
+
+	taskRunID, err := uuid.Parse(chi.URLParam(r, "taskRunID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -355,7 +416,12 @@ func (tH *TaskHandler) createTaskRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tRResponseDto, err := tH.service.CreateTaskRun(r.Context(), uId, wRId, tDId, tRRequestDto)
+	tRResponseDto, err := h.service.UpdateTaskRunByUserAndID(
+		r.Context(),
+		userID,
+		taskRunID,
+		tRRequestDto,
+	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -364,89 +430,19 @@ func (tH *TaskHandler) createTaskRun(w http.ResponseWriter, r *http.Request) {
 	renderJSON(w, r, http.StatusOK, tRResponseDto)
 }
 
-func (tH *TaskHandler) getTaskRunByWorkflowRun(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) deleteTaskRun(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	wRId, err := uuid.Parse(chi.URLParam(r, "wRId"))
+	taskRunID, err := uuid.Parse(chi.URLParam(r, "taskRunID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tRResponseDto, err := tH.service.GetTaskRunByWorkflowRun(r.Context(), uId, wRId)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	renderJSON(w, r, http.StatusOK, tRResponseDto)
-}
-
-func (tH *TaskHandler) getTaskRunByUserAndId(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
-	if !valid {
-		return
-	}
-
-	tRId, err := uuid.Parse(chi.URLParam(r, "tRId"))
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	tRResponseDto, err := tH.service.GetTaskRunByUserAndId(r.Context(), uId, tRId)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	renderJSON(w, r, http.StatusOK, tRResponseDto)
-}
-
-func (tH *TaskHandler) updateTaskRunById(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
-	if !valid {
-		return
-	}
-
-	tRId, err := uuid.Parse(chi.URLParam(r, "tRId"))
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	var tRRequestDto task.TaskRunRequestDto
-	err = render.DecodeJSON(r.Body, &tRRequestDto)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	tRResponseDto, err := tH.service.UpdateTaskRunByUserAndId(r.Context(), uId, tRId, tRRequestDto)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	renderJSON(w, r, http.StatusOK, tRResponseDto)
-}
-
-func (tH *TaskHandler) deleteTaskRun(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
-	if !valid {
-		return
-	}
-
-	tRId, err := uuid.Parse(chi.URLParam(r, "tRId"))
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	tRResponseDto, err := tH.service.SoftDeleteTaskRun(r.Context(), uId, tRId)
+	tRResponseDto, err := h.service.SoftDeleteTaskRun(r.Context(), userID, taskRunID)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -457,19 +453,19 @@ func (tH *TaskHandler) deleteTaskRun(w http.ResponseWriter, r *http.Request) {
 
 // TaskAttempt
 
-func (tH *TaskHandler) getTaskAttemptByTaskRun(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) getTaskAttemptByTaskRun(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tRId, err := uuid.Parse(chi.URLParam(r, "tRId"))
+	taskRunID, err := uuid.Parse(chi.URLParam(r, "taskRunID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tAResponseDto, err := tH.service.GetTaskAttemptByTaskRun(r.Context(), uId, tRId)
+	tAResponseDto, err := h.service.GetTaskAttemptByTaskRun(r.Context(), userID, taskRunID)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -478,19 +474,19 @@ func (tH *TaskHandler) getTaskAttemptByTaskRun(w http.ResponseWriter, r *http.Re
 	renderJSON(w, r, http.StatusOK, tAResponseDto)
 }
 
-func (tH *TaskHandler) getTaskAttemptByUserAndId(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) getTaskAttemptByUserAndID(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tAId, err := uuid.Parse(chi.URLParam(r, "tAId"))
+	taskAttemptID, err := uuid.Parse(chi.URLParam(r, "taskAttemptID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tAResponseDto, err := tH.service.GetTaskAttemptByUserAndId(r.Context(), uId, tAId)
+	tAResponseDto, err := h.service.GetTaskAttemptByUserAndID(r.Context(), userID, taskAttemptID)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -499,19 +495,19 @@ func (tH *TaskHandler) getTaskAttemptByUserAndId(w http.ResponseWriter, r *http.
 	renderJSON(w, r, http.StatusOK, tAResponseDto)
 }
 
-func (tH *TaskHandler) deleteTaskAttempt(w http.ResponseWriter, r *http.Request) {
-	uId, valid := userIDFromToken(w, r)
+func (h *TaskHandler) deleteTaskAttempt(w http.ResponseWriter, r *http.Request) {
+	userID, valid := userIDFromToken(w, r)
 	if !valid {
 		return
 	}
 
-	tAId, err := uuid.Parse(chi.URLParam(r, "tAId"))
+	taskAttemptID, err := uuid.Parse(chi.URLParam(r, "taskAttemptID"))
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	tAResponseDto, err := tH.service.SoftDeleteTaskAttempt(r.Context(), uId, tAId)
+	tAResponseDto, err := h.service.SoftDeleteTaskAttempt(r.Context(), userID, taskAttemptID)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
 		return

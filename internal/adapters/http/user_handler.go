@@ -51,12 +51,12 @@ func (h *UserHandler) createUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *UserHandler) getUserHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := userIDFromToken(w, r)
+	userID, ok := userIDFromToken(w, r)
 	if !ok {
 		return
 	}
 
-	response, err := h.service.GetUser(r.Context(), user.UserRequestDto{ID: &id})
+	response, err := h.service.GetUserByID(r.Context(), userID)
 	if err != nil {
 		renderError(w, r, http.StatusNotFound, "user not found")
 		return
@@ -66,19 +66,19 @@ func (h *UserHandler) getUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) updateUserHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := userIDFromToken(w, r)
+	userID, ok := userIDFromToken(w, r)
 	if !ok {
 		return
 	}
 
-	var request user.UpdateUserRequestDto
-	if err := render.DecodeJSON(r.Body, &request); err != nil {
+	var dto user.UpdateUserRequestDto
+	err := render.DecodeJSON(r.Body, &dto)
+	if err != nil {
 		renderError(w, r, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	request.ID = &id
 
-	response, err := h.service.UpdateUser(r.Context(), request)
+	response, err := h.service.UpdateUserByID(r.Context(), userID, dto)
 	if err != nil {
 		renderError(w, r, http.StatusInternalServerError, "failed to update user")
 		return
@@ -88,18 +88,13 @@ func (h *UserHandler) updateUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *UserHandler) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
-	id, ok := userIDFromToken(w, r)
+	userID, ok := userIDFromToken(w, r)
 	if !ok {
 		return
 	}
 
-	request := user.DeleteUserRequestDto{ID: &id}
-	var (
-		response user.UserResponseDto
-		err      error
-	)
 	// soft delete first cases later
-	response, err = h.service.SoftDeleteUser(r.Context(), request)
+	response, err := h.service.SoftDeleteUser(r.Context(), userID)
 
 	if err != nil {
 		renderError(w, r, http.StatusInternalServerError, "failed to delete user")

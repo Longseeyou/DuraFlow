@@ -24,25 +24,40 @@ type AuthService struct {
 	TokenTTL   time.Duration
 }
 
-func NewAuthService(repository user.UserRepository, secret string, tokenTTL time.Duration) *AuthService {
+func NewAuthService(
+	repository user.UserRepository,
+	secret string,
+	tokenTTL time.Duration,
+) *AuthService {
 	if tokenTTL == 0 {
 		tokenTTL = defaultTokenTTL
 	}
 
 	return &AuthService{
 		Repository: repository,
-		TokenAuth:  jwtauth.New("HS256", []byte(secret), nil, jwt.WithAcceptableSkew(30*time.Second)),
-		TokenTTL:   tokenTTL,
+		TokenAuth: jwtauth.New(
+			"HS256",
+			[]byte(secret),
+			nil,
+			jwt.WithAcceptableSkew(30*time.Second),
+		),
+		TokenTTL: tokenTTL,
 	}
 }
 
-func (authService AuthService) Login(ctx context.Context, request LoginRequestDto) (TokenResponseDto, error) {
+func (authService AuthService) Login(
+	ctx context.Context,
+	request LoginRequestDto,
+) (TokenResponseDto, error) {
 	u, err := authService.Repository.GetUserByEmail(ctx, request.Email)
 	if err != nil {
 		return TokenResponseDto{}, ErrInvalidCredentials
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(request.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword(
+		[]byte(u.PasswordHash),
+		[]byte(request.Password),
+	); err != nil {
 		return TokenResponseDto{}, ErrInvalidCredentials
 	}
 
@@ -51,11 +66,11 @@ func (authService AuthService) Login(ctx context.Context, request LoginRequestDt
 		ttl = defaultTokenTTL
 	}
 
-	claims := map[string]interface{}{
+	claims := map[string]any{
 		"sub":     u.ID.String(),
 		"user_id": u.ID.String(),
 		"email":   u.Email,
-		"role":    int(u.Role),
+		"role":    u.Role,
 		"exp":     jwtauth.ExpireIn(ttl),
 	}
 	jwtauth.SetIssuedNow(claims)
