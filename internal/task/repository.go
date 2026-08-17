@@ -111,7 +111,7 @@ type TaskRepositoryInternal interface {
 	TaskDependencyStoreInternal
 	TaskRunStoreInternal
 	TaskAttemptStoreInternal
-	TaskEventStoreInternal
+	// TaskEventStoreInternal
 }
 
 type TaskDefinitionStoreInternal interface {
@@ -141,11 +141,10 @@ type TaskDependencyStoreInternal interface {
 type TaskRunStoreInternal interface {
 	CreateTaskRun(ctx context.Context, tR TaskRun) (TaskRun, error)
 	GetTaskRunByID(ctx context.Context, taskRunID uuid.UUID) (TaskRun, error)
-	// GetTaskRunsByWorkflowRun(ctx context.Context, workflowRunID uuid.UUID) ([]TaskRun, error)
 	UpdateTaskRunByID(
 		ctx context.Context,
 		taskRunID uuid.UUID,
-		newTR map[string]any,
+		newTaskRun map[string]any,
 	) (TaskRun, error)
 	HardDeleteTaskRun(ctx context.Context, taskRunID uuid.UUID) (TaskRun, error)
 	TaskRunIdempotency(
@@ -153,8 +152,14 @@ type TaskRunStoreInternal interface {
 		taskRunID uuid.UUID,
 		newStatus TaskRunStatus,
 	) (bool, error)
+	MarkTaskRunRunning(
+		ctx context.Context,
+		taskRunID uuid.UUID,
+		attemptNumber uint,
+	) (bool, error)
 
 	GetPredecessorTaskRuns(ctx context.Context, taskRunID uuid.UUID) ([]TaskRun, error)
+	GetTimedOutTaskRuns(ctx context.Context) ([]TaskRun, error)
 }
 
 type TaskAttemptStoreInternal interface {
@@ -168,16 +173,16 @@ type TaskAttemptStoreInternal interface {
 	UpdateTaskAttemptByID(
 		ctx context.Context,
 		taskAttemptID uuid.UUID,
-		newTA map[string]any,
+		newTaskAttempt map[string]any,
 	) (TaskAttempt, error)
-	TaskAttemptIdempotency(
-		ctx context.Context,
-		taskAttemptID uuid.UUID,
-		newStatus TaskAttemptStatus,
-	) (bool, error)
+	// TaskAttemptIdempotency(
+	// 	ctx context.Context,
+	// 	taskAttemptID uuid.UUID,
+	// 	newStatus TaskAttemptStatus,
+	// ) (bool, error)
 }
 
-type TaskEventStoreInternal interface {
-	TaskEventExists(ctx context.Context, eventID uuid.UUID) (bool, error)
-	CreateTaskEvent(ctx context.Context, event TaskEvent) (TaskEvent, error)
-}
+// type TaskEventStoreInternal interface {
+// 	TaskEventExists(ctx context.Context, eventID uuid.UUID) (bool, error)
+// 	CreateTaskEvent(ctx context.Context, event TaskEvent) (TaskEvent, error)
+// }

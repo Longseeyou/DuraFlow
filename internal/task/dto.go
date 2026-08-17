@@ -68,41 +68,17 @@ type TaskAttemptResponseDto struct {
 
 // Internal
 
-type TaskRunInternalDto struct {
-	Status      *TaskRunStatus
-	RetryCount  *uint
-	ScheduledAt *time.Time
-	StartedAt   *time.Time
-	EndedAt     *time.Time
-	Input       *string
-	Output      *string
-	Error       *string
-}
-
-type TaskAttemptInternalDto struct {
-	AttemptNumber *uint
-	WorkerID      *string
-	Status        *TaskAttemptStatus
-	StartedAt     *time.Time
-	EndedAt       *time.Time
-	Log           *string
-}
-
 type TaskCommandRequest struct {
 	TaskRunID     uuid.UUID
-	TaskAttemptID uuid.UUID
 	TaskType      TaskType
-	Input         *string
-	Timeout       *time.Duration
+	Timeout       time.Duration
+	AttemptNumber uint
 }
 
 type TaskCommandResponse struct {
-	TaskRunID     uuid.UUID
-	TaskAttemptID uuid.UUID
-	WorkerID      uuid.UUID
-	Status        TaskAttemptStatus
-	StartedAt     time.Time
-	EndedAt       time.Time
-	Output        *string
-	Log           *string
+	TaskRunID uuid.UUID
+	WorkerID  uuid.UUID
+	Status    TaskAttemptStatus
+	StartedAt time.Time
+	EndedAt   time.Time
 }

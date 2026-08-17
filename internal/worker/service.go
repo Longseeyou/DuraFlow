@@ -3,32 +3,33 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"time"
 
-	"github.com/Longseeyou/DuraFlow/internal/shared/message"
+	"github.com/Longseeyou/DuraFlow/internal/message"
 	"github.com/Longseeyou/DuraFlow/internal/task"
 	executorimpl "github.com/Longseeyou/DuraFlow/internal/task/executor_impl"
 )
 
 type Worker struct {
-	workerID       string
-	consumer       message.Consumer
-	producer       message.Producer
-	taskRepository task.TaskRepositoryInternal
+	workerID   string
+	consumer   message.Consumer
+	producer   message.Producer
+	repository WorkerRepository
 }
 
 func NewWorker(
 	workerID string,
 	consumer message.Consumer,
 	producer message.Producer,
-	taskRepository task.TaskRepositoryInternal,
+	repository WorkerRepository,
 ) Worker {
 	return Worker{
-		workerID:       workerID,
-		consumer:       consumer,
-		producer:       producer,
-		taskRepository: taskRepository,
+		workerID:   workerID,
+		consumer:   consumer,
+		producer:   producer,
+		repository: repository,
 	}
 }
 
@@ -52,95 +53,102 @@ func (w Worker) Run(ctx context.Context) {
 
 		switch string(msg.Key[:]) {
 		case "TaskCommandRequest":
-			var tCRequest task.TaskCommandRequest
-			err = json.Unmarshal(msg.Value, &tCRequest)
+			err = w.ExecuteTaskCommandRequest(ctx, msg)
 			if err != nil {
-				slog.Error("Worker Run json.Unmarshal", "workerID", w.workerID, "error", err)
-				continue
+				slog.Error("Worker Run ExecuteTaskCommandRequest", "error", err)
 			}
-
-			valid, err := w.taskRepository.TaskAttemptIdempotency(
-				ctx,
-				tCRequest.TaskAttemptID,
-				task.TASK_ATTEMPT_RUNNING,
-			)
-			if err != nil {
-				continue
-			}
-			if !valid {
-				slog.Error(
-					"Worker Run taskRepository.TaskAttemptIdempotency",
-					"workerID",
-					w.workerID,
-					"error",
-					"Idempotency",
-				)
-				continue
-			}
-
-			startedAt := time.Now()
-
-			executor, err := executorimpl.NewTaskExecutor(tCRequest.TaskType)
-			if err != nil {
-				slog.Error(
-					"Worker Run executorimpl.NewTaskExecutor",
-					"workerID",
-					w.workerID,
-					"error",
-					err,
-				)
-
-				err = w.producer.SendMessage(
-					ctx,
-					"TaskCommandResponse",
-					"Error",
-					[]byte(err.Error()),
-				)
-				if err != nil {
-					slog.Error(
-						"Worker Run producer.SendMessage", "workerID", w.workerID, "error", err,
-					)
-				}
-				continue
-			}
-
-			slog.Info("Worker Run executor.Execute start", "workerID", w.workerID)
-			taskOutput, taskLog, taskAttemptStatus, err := executor.Execute(ctx, *tCRequest.Input)
-			slog.Info("Worker Run executor.Execute end", "workerID", w.workerID)
-
-			if err != nil {
-				slog.Error("Worker Run executor.Execute", "workerID", w.workerID, "error", err)
-				taskAttemptStatus = task.TASK_ATTEMPT_FAILED
-			}
-
-			endedAt := time.Now()
-
-			var tCResponse task.TaskCommandResponse
-			tCResponse.TaskRunID = tCRequest.TaskRunID
-			tCResponse.TaskAttemptID = tCRequest.TaskAttemptID
-			tCResponse.Status = taskAttemptStatus
-			tCResponse.StartedAt = startedAt
-			tCResponse.EndedAt = endedAt
-			tCResponse.Output = &taskOutput
-			tCResponse.Log = &taskLog
-
-			value, err := json.Marshal(tCResponse)
-			if err != nil {
-				slog.Error("Worker Run json.Marshal", "workerID", w.workerID, "error", err)
-				continue
-			}
-
-			err = w.producer.SendMessage(
-				ctx,
-				"TaskCommandResponse",
-				"TaskCommandResponse",
-				value,
-			)
-			if err != nil {
-				slog.Error(
-					"Worker Run producer.SendMessage", "workerID", w.workerID, "error", err,
-				)
-			}
+			msg.Ack()
 		}
 	}
+}
+
+func (w Worker) ExecuteTaskCommandRequest(
+	ctx context.Context,
+	msg *message.Message,
+) error {
+	// Decode message
+	var tCRequest task.TaskCommandRequest
+	err := json.Unmarshal(msg.Value, &tCRequest)
+	if err != nil {
+		return err
+	}
+
+	// Idempotency: only start if the run is queued for this exact attempt number
+	ok, err := w.repository.MarkTaskRunRunning(
+		ctx,
+		tCRequest.TaskRunID,
+		tCRequest.AttemptNumber,
+	)
+	if err != nil {
+		return err
+
+	}
+	if !ok {
+		return errors.New("Idempotency")
+	}
+
+	executor, err := executorimpl.NewTaskExecutor(tCRequest.TaskType)
+	if err != nil {
+		return err
+	}
+
+	// Execute
+	startedAt := time.Now()
+
+	tR, err := w.repository.UpdateTaskRunByID(
+		ctx,
+		tCRequest.TaskRunID,
+		map[string]any{"timeout_at": startedAt.Add(tCRequest.Timeout)},
+	)
+	if err != nil {
+		return err
+	}
+
+	slog.Info("Worker ExecuteTaskCommandRequest executor.Execute start", "workerID", w.workerID)
+
+	executor_ctx, cancel := context.WithTimeout(ctx, tCRequest.Timeout)
+	defer cancel()
+	taskOutput, taskLog, err := executor.Execute(
+		executor_ctx,
+		*tR.Input,
+	)
+
+	endedAt := time.Now()
+	slog.Info("Worker ExecuteTaskCommandRequest executor.Execute end", "workerID", w.workerID)
+
+	// Update TaskRun and create TaskAttempt
+	newTaskRun := map[string]any{"retry_count": tCRequest.AttemptNumber}
+
+	tA := task.TaskAttempt{
+		TaskRunID:     tR.ID,
+		AttemptNumber: tCRequest.AttemptNumber,
+		WorkerID:      w.workerID,
+		StartedAt:     &startedAt,
+		EndedAt:       &endedAt,
+		Log:           &taskLog,
+	}
+
+	if err == nil {
+		newTaskRun["status"] = task.TASK_RUN_COMPLETED
+		newTaskRun["ended_at"] = endedAt
+		newTaskRun["output"] = taskOutput
+
+		tA.Status = task.TASK_ATTEMPT_COMPLETED
+	} else {
+		newTaskRun["status"] = task.TASK_RUN_FAILED
+
+		tA.Status = task.TASK_ATTEMPT_FAILED
+	}
+
+	tR, err = w.repository.UpdateTaskRunByID(ctx, tCRequest.TaskRunID, newTaskRun)
+	if err != nil {
+		return err
+	}
+
+	tA, err = w.repository.CreateTaskAttempt(ctx, tA)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

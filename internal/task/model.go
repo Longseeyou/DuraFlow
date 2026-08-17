@@ -14,29 +14,6 @@ const (
 	MOCK_TASK TaskType = "MOCK_TASK"
 )
 
-type TaskRunStatus string
-
-const (
-	TASK_RUN_PENDING       TaskRunStatus = "TASK_RUN_PENDING"
-	TASK_RUN_QUEUED        TaskRunStatus = "TASK_RUN_QUEUED"
-	TASK_RUN_RUNNING       TaskRunStatus = "TASK_RUN_RUNNING"
-	TASK_RUN_COMPLETED     TaskRunStatus = "TASK_RUN_COMPLETED"
-	TASK_RUN_FAILED        TaskRunStatus = "TASK_RUN_FAILED"
-	TASK_RUN_CANCELLED     TaskRunStatus = "TASK_RUN_CANCELLED"
-	TASK_RUN_DEAD_LETTERED TaskRunStatus = "TASK_RUN_DEAD_LETTERED"
-)
-
-type TaskAttemptStatus string
-
-const (
-	TASK_ATTEMPT_QUEUED        TaskAttemptStatus = "TASK_ATTEMPT_QUEUED"
-	TASK_ATTEMPT_RUNNING       TaskAttemptStatus = "TASK_ATTEMPT_RUNNING"
-	TASK_ATTEMPT_COMPLETED     TaskAttemptStatus = "TASK_ATTEMPT_COMPLETED"
-	TASK_ATTEMPT_FAILED        TaskAttemptStatus = "TASK_ATTEMPT_FAILED"
-	TASK_ATTEMPT_CANCELLED     TaskAttemptStatus = "TASK_ATTEMPT_CANCELLED"
-	TASK_ATTEMPT_DEAD_LETTERED TaskAttemptStatus = "TASK_ATTEMPT_DEAD_LETTERED"
-)
-
 type TaskDefinition struct {
 	model.BaseModel
 	WorkflowDefinitionID uuid.UUID
@@ -55,6 +32,18 @@ type TaskDependency struct {
 	DependOnTask   TaskDefinition `json:"-"`
 }
 
+type TaskRunStatus string
+
+const (
+	TASK_RUN_PENDING       TaskRunStatus = "TASK_RUN_PENDING"
+	TASK_RUN_QUEUED        TaskRunStatus = "TASK_RUN_QUEUED"
+	TASK_RUN_RUNNING       TaskRunStatus = "TASK_RUN_RUNNING"
+	TASK_RUN_COMPLETED     TaskRunStatus = "TASK_RUN_COMPLETED"
+	TASK_RUN_FAILED        TaskRunStatus = "TASK_RUN_FAILED"
+	TASK_RUN_CANCELLED     TaskRunStatus = "TASK_RUN_CANCELLED"
+	TASK_RUN_DEAD_LETTERED TaskRunStatus = "TASK_RUN_DEAD_LETTERED"
+)
+
 type TaskRun struct {
 	model.BaseModel
 	WorkflowRunID    uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
@@ -64,9 +53,9 @@ type TaskRun struct {
 	Status           TaskRunStatus
 	RetryCount       uint
 	MaxRetries       uint
-	ScheduledAt      *time.Time
 	StartedAt        *time.Time
 	EndedAt          *time.Time
+	TimeoutAt        *time.Time
 	Input            *string
 	Output           *string
 }
@@ -96,6 +85,14 @@ func ValidPreviousTaskRunStatus(newStatus TaskRunStatus) []TaskRunStatus {
 	return nil
 }
 
+type TaskAttemptStatus string
+
+const (
+	TASK_ATTEMPT_COMPLETED TaskAttemptStatus = "TASK_ATTEMPT_COMPLETED"
+	TASK_ATTEMPT_FAILED    TaskAttemptStatus = "TASK_ATTEMPT_FAILED"
+	TASK_ATTEMPT_CANCELLED TaskAttemptStatus = "TASK_ATTEMPT_CANCELLED"
+)
+
 type TaskAttempt struct {
 	model.BaseModel
 	TaskRunID     uuid.UUID `gorm:"uniqueIndex:idx_task_attempt"`
@@ -105,27 +102,48 @@ type TaskAttempt struct {
 	Status        TaskAttemptStatus
 	StartedAt     *time.Time
 	EndedAt       *time.Time
-	TimeoutAt     *time.Time
 	Log           *string
 }
 
-func ValidPreviousTaskAttemptStatus(
-	newStatus TaskAttemptStatus,
-) []TaskAttemptStatus {
-	validPrevious := []TaskAttemptStatus{}
-	switch newStatus {
-	case TASK_ATTEMPT_QUEUED:
-	case TASK_ATTEMPT_RUNNING:
-		validPrevious = append(validPrevious, TASK_ATTEMPT_QUEUED)
-	case TASK_ATTEMPT_COMPLETED:
-		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
-	case TASK_ATTEMPT_FAILED:
-		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
-	case TASK_ATTEMPT_CANCELLED:
-		validPrevious = append(validPrevious, TASK_ATTEMPT_QUEUED, TASK_ATTEMPT_RUNNING)
-	case TASK_ATTEMPT_DEAD_LETTERED:
-		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
-	default:
-	}
-	return validPrevious
-}
+// func ValidPreviousTaskAttemptStatus(
+// 	newStatus TaskAttemptStatus,
+// ) []TaskAttemptStatus {
+// 	validPrevious := []TaskAttemptStatus{}
+// 	switch newStatus {
+// 	case TASK_ATTEMPT_QUEUED:
+// 	case TASK_ATTEMPT_RUNNING:
+// 		validPrevious = append(validPrevious, TASK_ATTEMPT_QUEUED)
+// 	case TASK_ATTEMPT_COMPLETED:
+// 		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
+// 	case TASK_ATTEMPT_FAILED:
+// 		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
+// 	case TASK_ATTEMPT_CANCELLED:
+// 		validPrevious = append(validPrevious, TASK_ATTEMPT_QUEUED, TASK_ATTEMPT_RUNNING)
+// 	case TASK_ATTEMPT_DEAD_LETTERED:
+// 		validPrevious = append(validPrevious, TASK_ATTEMPT_RUNNING)
+// 	default:
+// 	}
+// 	return validPrevious
+// }
+
+// type TaskEventType string
+//
+// const (
+// 	TASK_QUEUED        TaskEventType = "TASK_QUEUED"
+// 	TASK_STARTED       TaskEventType = "TASK_STARTED"
+// 	TASK_COMPLETED     TaskEventType = "TASK_COMPLETED"
+// 	TASK_FAILED        TaskEventType = "TASK_FAILED"
+// 	TASK_CANCELLED     TaskEventType = "TASK_CANCELLED"
+// 	TASK_DEAD_LETTERED TaskEventType = "TASK_DEAD_LETTERED"
+// )
+//
+// type TaskEvent struct {
+// 	model.BaseModel
+// 	WorkflowRunID uuid.UUID     `json:"workflow_run_id"`
+// 	TaskRunID     uuid.UUID     `json:"task_run_id"`
+// 	EventType     TaskEventType `json:"event_type"`
+// 	AttemptNumber uint          `json:"attempt"`
+// 	Result        *string       `json:"result,omitempty"`
+// 	Error         *string       `json:"error,omitempty"`
+// 	WorkerID      string        `json:"worker_id,omitempty"`
+// }
