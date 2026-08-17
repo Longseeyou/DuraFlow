@@ -22,10 +22,53 @@ func NewPostgresTaskRepository(database *gorm.DB) task.TaskRepository {
 
 func (repo *PostgresTaskRepository) CreateTaskDefinition(
 	ctx context.Context,
+	userID uuid.UUID,
+	workflowDefinitionID uuid.UUID,
 	tD task.TaskDefinition,
 ) (task.TaskDefinition, error) {
-	result := repo.database.WithContext(ctx).Create(&tD)
-	return tD, result.Error
+	var created task.TaskDefinition
+
+	result := repo.database.WithContext(ctx).Raw(`
+		INSERT INTO task_definitions (
+			id,
+			workflow_definition_id,
+			name,
+			description,
+			task_type,
+			timeout
+		)
+		SELECT gen_random_uuid(), ?, ?, ?, ?, ?
+		FROM workflow_definitions
+		JOIN workflows ON workflows.id = workflow_definitions.workflow_id
+		WHERE workflow_definitions.id = ?
+		  AND workflows.user_id = ?
+		  AND workflow_definitions.status = ?
+		RETURNING id,
+			workflow_definition_id,
+			name,
+			description,
+			task_type,
+			timeout
+	`,
+		workflowDefinitionID,
+		tD.Name,
+		tD.Description,
+		tD.TaskType,
+		tD.Timeout,
+		workflowDefinitionID,
+		userID,
+		workflow.WORKFLOW_DEFINITION_EDITING,
+	).Scan(&created)
+
+	if result.Error != nil {
+		return task.TaskDefinition{}, result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return task.TaskDefinition{}, task.ErrWorkflowDefinitionNotEditing
+	}
+
+	return created, nil
 }
 
 func (repo *PostgresTaskRepository) GetTaskDefinitionsByWorkflowDefinition(
@@ -499,8 +542,7 @@ func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskRuns(
     FROM task_runs tr
     JOIN task_dependencies d ON d.task_id = tr.task_definition_id
     JOIN task_runs dep_tr ON dep_tr.task_definition_id = d.depend_on_task_id AND dep_tr.workflow_run_id = tr.workflow_run_id
-    WHERE tr.id = ?;
-  `).Scan(&tRs)
+    WHERE tr.id = ?`, taskRunID).Scan(&tRs)
 	return tRs, result.Error
 }
 

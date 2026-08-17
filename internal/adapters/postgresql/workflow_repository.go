@@ -143,7 +143,7 @@ func (repo PostgresWorkflowRepository) UpdateWorkflowDefinitionByUserAndID(
 		}
 
 		filter = filter.Where(
-			"workflow_definitions.status IN",
+			"workflow_definitions.status IN ?",
 			workflow.ValidPreviousWorkflowDefinitionStatus(newStatus),
 		)
 	}

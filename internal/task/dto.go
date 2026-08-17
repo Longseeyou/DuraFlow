@@ -89,6 +89,7 @@ type TaskAttemptInternalDto struct {
 }
 
 type TaskCommandRequest struct {
+	TaskRunID     uuid.UUID
 	TaskAttemptID uuid.UUID
 	TaskType      TaskType
 	Input         *string
@@ -96,6 +97,7 @@ type TaskCommandRequest struct {
 }
 
 type TaskCommandResponse struct {
+	TaskRunID     uuid.UUID
 	TaskAttemptID uuid.UUID
 	WorkerID      uuid.UUID
 	Status        TaskAttemptStatus

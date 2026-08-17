@@ -37,6 +37,9 @@ func (w Worker) Run(ctx context.Context) {
 	for {
 		msg, err := w.consumer.ReceiveMessage(ctx)
 		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			slog.Error(
 				"Worker Run consumer.ReceiveMessage",
 				"workerID",
@@ -113,6 +116,8 @@ func (w Worker) Run(ctx context.Context) {
 			endedAt := time.Now()
 
 			var tCResponse task.TaskCommandResponse
+			tCResponse.TaskRunID = tCRequest.TaskRunID
+			tCResponse.TaskAttemptID = tCRequest.TaskAttemptID
 			tCResponse.Status = taskAttemptStatus
 			tCResponse.StartedAt = startedAt
 			tCResponse.EndedAt = endedAt

@@ -142,7 +142,7 @@ func (s *WorkflowService) CreateWorkflowDefinition(
 	userID uuid.UUID,
 	workflowID uuid.UUID,
 ) (WorkflowDefinitionResponseDto, error) {
-	_, err := s.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowID)
+	_, err := s.GetWorkflowByUserAndID(ctx, userID, workflowID)
 	if err != nil {
 		return WorkflowDefinitionResponseDto{}, err
 	}
