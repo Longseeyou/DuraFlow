@@ -175,14 +175,4 @@ type TaskAttemptStoreInternal interface {
 		taskAttemptID uuid.UUID,
 		newTaskAttempt map[string]any,
 	) (TaskAttempt, error)
-	// TaskAttemptIdempotency(
-	// 	ctx context.Context,
-	// 	taskAttemptID uuid.UUID,
-	// 	newStatus TaskAttemptStatus,
-	// ) (bool, error)
 }
-
-// type TaskEventStoreInternal interface {
-// 	TaskEventExists(ctx context.Context, eventID uuid.UUID) (bool, error)
-// 	CreateTaskEvent(ctx context.Context, event TaskEvent) (TaskEvent, error)
-// }

@@ -8,6 +8,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type Workflow struct {
+	model.BaseModel
+	UserID      uuid.UUID
+	User        user.User `json:"-"`
+	Name        string
+	Description string
+}
+
 type WorkflowDefinitionStatus string
 
 const (
@@ -16,22 +24,23 @@ const (
 	WORKFLOW_DEFINITION_RUNNING   WorkflowDefinitionStatus = "WORKFLOW_DEFINITION_RUNNING"
 )
 
-type WorkflowRunStatus string
-
-const (
-	WORKFLOW_RUN_PENDING   WorkflowRunStatus = "WORKFLOW_RUN_PENDING"
-	WORKFLOW_RUN_RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
-	WORKFLOW_RUN_COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
-	WORKFLOW_RUN_FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
-	WORKFLOW_RUN_CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
-)
-
-type Workflow struct {
-	model.BaseModel
-	UserID      uuid.UUID
-	User        user.User `json:"-"`
-	Name        string
-	Description string
+func ValidPreviousWorkflowDefinitionStatus(
+	newStatus WorkflowDefinitionStatus,
+) []WorkflowDefinitionStatus {
+	switch newStatus {
+	case WORKFLOW_DEFINITION_EDITING:
+		return []WorkflowDefinitionStatus{newStatus, WORKFLOW_DEFINITION_ACTIVATED}
+	case WORKFLOW_DEFINITION_ACTIVATED:
+		return []WorkflowDefinitionStatus{
+			newStatus,
+			WORKFLOW_DEFINITION_EDITING,
+			WORKFLOW_DEFINITION_RUNNING,
+		}
+	case WORKFLOW_DEFINITION_RUNNING:
+		return []WorkflowDefinitionStatus{newStatus, WORKFLOW_DEFINITION_ACTIVATED}
+	default:
+		return []WorkflowDefinitionStatus{}
+	}
 }
 
 type WorkflowDefinition struct {
@@ -42,23 +51,15 @@ type WorkflowDefinition struct {
 	Status     WorkflowDefinitionStatus
 }
 
-func ValidPreviousWorkflowDefinitionStatus(
-	newStatus WorkflowDefinitionStatus,
-) []WorkflowDefinitionStatus {
-	validPrevious := []WorkflowDefinitionStatus{newStatus}
-	switch newStatus {
-	case WORKFLOW_DEFINITION_EDITING:
-		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_ACTIVATED)
-	case WORKFLOW_DEFINITION_ACTIVATED:
-		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_EDITING)
-		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_RUNNING)
-	case WORKFLOW_DEFINITION_RUNNING:
-		validPrevious = append(validPrevious, WORKFLOW_DEFINITION_ACTIVATED)
-	default:
-		return []WorkflowDefinitionStatus{}
-	}
-	return validPrevious
-}
+type WorkflowRunStatus string
+
+const (
+	WORKFLOW_RUN_PENDING   WorkflowRunStatus = "WORKFLOW_RUN_PENDING"
+	WORKFLOW_RUN_RUNNING   WorkflowRunStatus = "WORKFLOW_RUN_RUNNING"
+	WORKFLOW_RUN_COMPLETED WorkflowRunStatus = "WORKFLOW_RUN_COMPLETED"
+	WORKFLOW_RUN_FAILED    WorkflowRunStatus = "WORKFLOW_RUN_FAILED"
+	WORKFLOW_RUN_CANCELLED WorkflowRunStatus = "WORKFLOW_RUN_CANCELLED"
+)
 
 type WorkflowRun struct {
 	model.BaseModel

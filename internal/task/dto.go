@@ -61,8 +61,9 @@ type TaskAttemptResponseDto struct {
 	AttemptNumber uint
 	WorkerID      string
 	Status        TaskAttemptStatus
-	StartedAt     *time.Time
-	EndedAt       *time.Time
+	ScheduledAt   time.Time
+	StartedAt     time.Time
+	EndedAt       time.Time
 	log           *string
 }
 
@@ -73,6 +74,7 @@ type TaskCommandRequest struct {
 	TaskType      TaskType
 	Timeout       time.Duration
 	AttemptNumber uint
+	ScheduledAt   time.Time
 }
 
 type TaskCommandResponse struct {
