@@ -74,10 +74,12 @@ func (w Worker) ExecuteTaskCommandRequest(
 	}
 
 	// Idempotency: only start if the run is queued for this exact attempt number
-	ok, err := w.repository.MarkTaskRunRunning(
+	startedAt := time.Now()
+	ok, tR, err := w.repository.MarkTaskRunRunning(
 		ctx,
 		tCRequest.TaskRunID,
 		tCRequest.AttemptNumber,
+		startedAt.Add(tCRequest.Timeout),
 	)
 	if err != nil {
 		return err
@@ -87,19 +89,8 @@ func (w Worker) ExecuteTaskCommandRequest(
 		return errors.New("Idempotency")
 	}
 
-	executor, err := executorimpl.NewTaskExecutor(tCRequest.TaskType)
-	if err != nil {
-		return err
-	}
-
 	// Execute
-	startedAt := time.Now()
-
-	tR, err := w.repository.UpdateTaskRunByID(
-		ctx,
-		tCRequest.TaskRunID,
-		map[string]any{"timeout_at": startedAt.Add(tCRequest.Timeout)},
-	)
+	executor, err := executorimpl.NewTaskExecutor(tCRequest.TaskType)
 	if err != nil {
 		return err
 	}
@@ -141,12 +132,12 @@ func (w Worker) ExecuteTaskCommandRequest(
 		tA.Status = task.TASK_ATTEMPT_FAILED
 	}
 
-	tR, err = w.repository.UpdateTaskRunByID(ctx, tCRequest.TaskRunID, newTaskRun)
-	if err != nil {
-		return err
-	}
-
-	tA, err = w.repository.CreateTaskAttempt(ctx, tA)
+	tR, tA, err = w.repository.UpdateTaskRunByIDAndCreateTaskAttempt(
+		ctx,
+		tCRequest.TaskRunID,
+		newTaskRun,
+		tA,
+	)
 	if err != nil {
 		return err
 	}

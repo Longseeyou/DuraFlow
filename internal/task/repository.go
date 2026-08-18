@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -111,7 +112,6 @@ type TaskRepositoryInternal interface {
 	TaskDependencyStoreInternal
 	TaskRunStoreInternal
 	TaskAttemptStoreInternal
-	// TaskEventStoreInternal
 }
 
 type TaskDefinitionStoreInternal interface {
@@ -156,7 +156,8 @@ type TaskRunStoreInternal interface {
 		ctx context.Context,
 		taskRunID uuid.UUID,
 		attemptNumber uint,
-	) (bool, error)
+		startedAt time.Time,
+	) (bool, TaskRun, error)
 
 	GetPredecessorTaskRuns(ctx context.Context, taskRunID uuid.UUID) ([]TaskRun, error)
 	GetTimedOutTaskRuns(ctx context.Context) ([]TaskRun, error)

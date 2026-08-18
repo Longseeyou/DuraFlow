@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"time"
 
 	"github.com/Longseeyou/DuraFlow/internal/shared/repository"
 	"github.com/Longseeyou/DuraFlow/internal/task"
@@ -535,7 +536,8 @@ func (repo *PostgresTaskRepositoryInternal) MarkTaskRunRunning(
 	ctx context.Context,
 	taskRunID uuid.UUID,
 	attemptNumber uint,
-) (bool, error) {
+	startedAt time.Time,
+) (bool, task.TaskRun, error) {
 	var tR task.TaskRun
 	result := repo.database.WithContext(ctx).
 		Where(
@@ -547,7 +549,7 @@ func (repo *PostgresTaskRepositoryInternal) MarkTaskRunRunning(
 		Clauses(clause.Returning{}).
 		Model(&tR).
 		Updates(map[string]any{"status": task.TASK_RUN_RUNNING})
-	return result.RowsAffected == 1, result.Error
+	return result.RowsAffected == 1, tR, result.Error
 }
 
 func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskRuns(
