@@ -1,28 +1,26 @@
 package postgresql
 
 import (
+	"github.com/Longseeyou/DuraFlow/internal/orchestrator"
+	"github.com/Longseeyou/DuraFlow/internal/task"
+	"github.com/Longseeyou/DuraFlow/internal/workflow"
 	"gorm.io/gorm"
 )
 
 type PostgresOrchestratorRepository struct {
-	PostgresWorkflowRepository
+	workflow.WorkflowRepository
 
-	PostgresWorkflowRepositoryInternal
-	PostgresTaskRepositoryInternal
+	workflow.WorkflowRepositoryInternal
+	task.TaskRepositoryInternal
 }
 
 func NewPostgresOrchestratorRepository(
 	database *gorm.DB,
-) *PostgresOrchestratorRepository {
+) orchestrator.OrchestratorRepository {
 	return &PostgresOrchestratorRepository{
-		PostgresWorkflowRepository: PostgresWorkflowRepository{
-			database: database,
-		},
-		PostgresTaskRepositoryInternal: PostgresTaskRepositoryInternal{
-			database: database,
-		},
-		PostgresWorkflowRepositoryInternal: PostgresWorkflowRepositoryInternal{
-			database: database,
-		},
+		WorkflowRepository: NewPostgresWorkflowRepository(database),
+
+		WorkflowRepositoryInternal: NewPostgresWorkflowRepositoryInternal(database),
+		TaskRepositoryInternal:     NewPostgresTaskRepositoryInternal(database),
 	}
 }
