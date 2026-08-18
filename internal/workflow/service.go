@@ -251,19 +251,6 @@ func (s *WorkflowService) SoftDeleteWorkflowDefinition(
 	return workflowDefinitionModelToResponseDto(wD), nil
 }
 
-func (s *WorkflowService) ExistsWorkflowDefinitionByUserAndID(
-	ctx context.Context,
-	userID uuid.UUID,
-	workflowDefinitionID uuid.UUID,
-) (bool, error) {
-	_, err := s.repository.GetWorkflowDefinitionByUserAndID(ctx, userID, workflowDefinitionID)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
 // WorkflowRun
 
 func (s *WorkflowService) GetWorkflowRunByWorkflowDefinition(
@@ -302,34 +289,6 @@ func (s *WorkflowService) GetWorkflowRunByUserAndID(
 	}
 
 	return workfloworkflowRununModelToResponseDto(wR), nil
-}
-
-func (s *WorkflowService) UpdateWorkflowRunByUserAndID(
-	ctx context.Context,
-	userID uuid.UUID,
-	workflowRunID uuid.UUID,
-	dto WorkflowRunRequestDto,
-) (WorkflowRunResponseDto, error) {
-	newWorkflowRun := map[string]any{}
-	if dto.Status != nil {
-		newWorkflowRun["status"] = *dto.Status
-	}
-
-	if len(newWorkflowRun) == 0 {
-		return WorkflowRunResponseDto{}, custom_error.ErrUpdateInvalidRequest
-	}
-
-	workflowRun, err := s.repository.UpdateWorkflowRunByUserAndID(
-		ctx,
-		userID,
-		workflowRunID,
-		newWorkflowRun,
-	)
-	if err != nil {
-		return WorkflowRunResponseDto{}, err
-	}
-
-	return workfloworkflowRununModelToResponseDto(workflowRun), nil
 }
 
 func (s *WorkflowService) SoftDeleteWorkflowRun(

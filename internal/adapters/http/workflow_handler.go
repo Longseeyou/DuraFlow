@@ -54,7 +54,6 @@ func (wH *WorkflowHandler) ProtectedRoutes() chi.Router {
 
 	r.Route("/workflow_run/{workflowRunID}", func(r chi.Router) {
 		r.Get("", wH.getWorkflowRunByUserAndID)
-		r.Put("", wH.updateWorkflowRunByUserAndID)
 		r.Delete("", wH.deleteWorkflowRun)
 	})
 
@@ -319,27 +318,6 @@ func (wH *WorkflowHandler) deleteWorkflowDefinition(w http.ResponseWriter, r *ht
 
 // WorkflowRun
 
-// func (wH *WorkflowHandler) createWorkflowRun(w http.ResponseWriter, r *http.Request) {
-// 	userID, valid := userIDFromToken(w, r)
-// 	if !valid {
-// 		return
-// 	}
-//
-// 	workflowDefinitionID, err := uuid.Parse(chi.URLParam(r, "workflowDefinitionID"))
-// 	if err != nil {
-// 		renderError(w, r, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-//
-// 	workflowRunResponseDto, err := wH.service.CreateWorkflowRun(r.Context(), userID, workflowDefinitionID)
-// 	if err != nil {
-// 		renderError(w, r, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-//
-// 	renderJSON(w, r, http.StatusOK, workflowRunResponseDto)
-// }
-
 func (wH *WorkflowHandler) getWorkflowRunByWorkflowDefinition(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -387,39 +365,6 @@ func (wH *WorkflowHandler) getWorkflowRunByUserAndID(
 		r.Context(),
 		userID,
 		workflowRunID,
-	)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	renderJSON(w, r, http.StatusOK, workflowRunResponseDto)
-}
-
-func (wH *WorkflowHandler) updateWorkflowRunByUserAndID(w http.ResponseWriter, r *http.Request) {
-	userID, valid := userIDFromToken(w, r)
-	if !valid {
-		return
-	}
-
-	workflowRunID, err := uuid.Parse(chi.URLParam(r, "workflowRunID"))
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	var workflowRunRequestDto workflow.WorkflowRunRequestDto
-	err = render.DecodeJSON(r.Body, &workflowRunRequestDto)
-	if err != nil {
-		renderError(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	workflowRunResponseDto, err := wH.service.UpdateWorkflowRunByUserAndID(
-		r.Context(),
-		userID,
-		workflowRunID,
-		workflowRunRequestDto,
 	)
 	if err != nil {
 		renderError(w, r, http.StatusBadRequest, err.Error())
