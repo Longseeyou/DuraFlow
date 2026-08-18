@@ -41,7 +41,9 @@ func main() {
 	)
 
 	db, err := gorm.Open(
-		postgres.Open(envString("DATABASE_DSN", "host=localhost user=gorm password=gorm dbname=duraflow")),
+		postgres.Open(
+			envString("DATABASE_DSN", "host=localhost user=gorm password=gorm dbname=duraflow"),
+		),
 		&gorm.Config{},
 	)
 	if err != nil {
@@ -69,13 +71,11 @@ func main() {
 		}
 	}()
 
-	taskRepositoryInternal := postgresql.NewPostgresTaskRepositoryInternal(db)
-
 	w := worker.NewWorker(
 		envString("WORKER_ID", "worker-0"),
 		consumer,
 		producer,
-		taskRepositoryInternal,
+		postgresql.NewPostgresqlWorkerRepository(db),
 	)
 
 	w.Run(ctx)
