@@ -19,6 +19,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const defaultTaskRunCDCTopic = "dbz.public.task_runs"
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -35,7 +37,7 @@ func main() {
 		envString("ORCHESTRATOR_ID", "orchestrator-0"),
 		&kafkaConfig,
 		envString("ORCHESTRATOR_GROUP_ID", "orchestrator"),
-		[]string{orchestrator.TaskCommandResponseTopic},
+		[]string{envString("CDC_TASK_RUN_TOPIC", defaultTaskRunCDCTopic)},
 	)
 	producer := kafka.NewKafkaProducer(
 		envString("ORCHESTRATOR_PRODUCER_ID", "orchestrator-0"),
@@ -78,10 +80,10 @@ func main() {
 	}()
 
 	repository := postgresql.NewPostgresOrchestratorRepository(db)
-	taskPoller := postgresql.NewPostgresTaskPoller(db)
+	taskPoller := kafka.NewKafkaTaskPoller(consumer)
+	rescueTaskPoller := postgresql.NewPostgresTaskPoller(db)
 
-	scheduler := orchestrator.NewTaskScheduler(repository, taskPoller, producer)
-	taskResolver := orchestrator.NewTaskResolver(repository, consumer)
+	scheduler := orchestrator.NewTaskScheduler(repository, taskPoller, rescueTaskPoller, producer)
 	orch := orchestrator.NewOrchestrator(repository)
 
 	slog.Info(
@@ -94,8 +96,8 @@ func main() {
 
 	go scheduler.Run(ctx)
 	go orch.ResolveTimeoutTaskRun(ctx)
-	taskResolver.Run(ctx)
 
+	<-ctx.Done()
 	slog.Info("orchestrator stopped")
 }
 
