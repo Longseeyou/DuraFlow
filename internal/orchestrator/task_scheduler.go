@@ -15,31 +15,51 @@ const (
 	TaskCommandRequestTopic  = "TaskCommandRequest"
 	TaskCommandResponseTopic = "TaskCommandResponse"
 
-	defaultPollInterval = 500 * time.Millisecond
+	defaultRescuePollInterval = 5 * time.Second
 )
 
 type TaskScheduler struct {
-	repository   OrchestratorRepository
-	taskPoller   TaskPoller
-	producer     message.Producer
-	pollInterval time.Duration
+	repository         OrchestratorRepository
+	taskPoller         TaskPoller
+	rescueTaskPoller   TaskPoller
+	producer           message.Producer
+	rescuePollInterval time.Duration
 }
 
 func NewTaskScheduler(
 	repository OrchestratorRepository,
 	taskPoller TaskPoller,
+	rescueTaskPoller TaskPoller,
 	producer message.Producer,
 ) *TaskScheduler {
 	return &TaskScheduler{
-		repository:   repository,
-		taskPoller:   taskPoller,
-		producer:     producer,
-		pollInterval: defaultPollInterval,
+		repository:         repository,
+		taskPoller:         taskPoller,
+		rescueTaskPoller:   rescueTaskPoller,
+		producer:           producer,
+		rescuePollInterval: defaultRescuePollInterval,
 	}
 }
 
 func (taskScheduler *TaskScheduler) Run(ctx context.Context) {
-	ticker := time.NewTicker(taskScheduler.pollInterval)
+	go taskScheduler.runRescuePoller(ctx)
+
+	for {
+		taskRuns, err := taskScheduler.taskPoller.PollTaskRun(ctx, 1)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			slog.Error("TaskScheduler PollTaskRun", "error", err)
+			continue
+		}
+
+		taskScheduler.scheduleTaskRuns(ctx, taskRuns)
+	}
+}
+
+func (taskScheduler *TaskScheduler) runRescuePoller(ctx context.Context) {
+	ticker := time.NewTicker(taskScheduler.rescuePollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -49,23 +69,30 @@ func (taskScheduler *TaskScheduler) Run(ctx context.Context) {
 		case <-ticker.C:
 		}
 
-		taskRuns, err := taskScheduler.taskPoller.PollTaskRun(ctx, 10)
+		taskRuns, err := taskScheduler.rescueTaskPoller.PollTaskRun(ctx, 10)
 		if err != nil {
-			slog.Error("TaskScheduler PollTaskRun", "error", err)
+			if ctx.Err() != nil {
+				return
+			}
+			slog.Error("TaskScheduler rescue PollTaskRun", "error", err)
 			continue
 		}
 
-		for _, taskRun := range taskRuns {
-			err := taskScheduler.ScheduleTask(ctx, &taskRun)
-			if err != nil {
-				slog.Error(
-					"TaskScheduler ScheduleTask",
-					"taskRunID",
-					taskRun.ID,
-					"error",
-					err,
-				)
-			}
+		taskScheduler.scheduleTaskRuns(ctx, taskRuns)
+	}
+}
+
+func (taskScheduler *TaskScheduler) scheduleTaskRuns(ctx context.Context, taskRuns []task.TaskRun) {
+	for _, taskRun := range taskRuns {
+		err := taskScheduler.ScheduleTask(ctx, &taskRun)
+		if err != nil {
+			slog.Error(
+				"TaskScheduler ScheduleTask",
+				"taskRunID",
+				taskRun.ID,
+				"error",
+				err,
+			)
 		}
 	}
 }

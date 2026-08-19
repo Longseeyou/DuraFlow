@@ -55,14 +55,21 @@ func (orchestrator *Orchestrator) RunWorkflow(
 	if err != nil {
 		return err
 	}
+	predecessorCounts, err := orchestrator.repository.
+		GetPredecessorTaskCountsByWorkflowDefinition(ctx, wD.ID)
+	if err != nil {
+		return err
+	}
+
 	for _, tD := range tDs {
 		_, err := orchestrator.repository.CreateTaskRun(
 			ctx,
 			task.TaskRun{
-				WorkflowRunID:    workflowRun.ID,
-				TaskDefinitionID: tD.ID,
-				Status:           task.TASK_RUN_PENDING,
-				MaxRetries:       10,
+				WorkflowRunID:                      workflowRun.ID,
+				TaskDefinitionID:                   tD.ID,
+				Status:                             task.TASK_RUN_PENDING,
+				MaxRetries:                         10,
+				NumberOfIncompletePredecessorTasks: predecessorCounts[tD.ID],
 			},
 		)
 		if err != nil {

@@ -132,6 +132,10 @@ type TaskDependencyStoreInternal interface {
 		ctx context.Context,
 		workflowDefinitionID uuid.UUID,
 	) ([]TaskDependency, error)
+	GetPredecessorTaskCountsByWorkflowDefinition(
+		ctx context.Context,
+		workflowDefinitionID uuid.UUID,
+	) (map[uuid.UUID]uint, error)
 	HardDeleteTaskDependency(
 		ctx context.Context,
 		taskDependencyID uuid.UUID,
@@ -152,6 +156,8 @@ type TaskRunStoreInternal interface {
 		taskRunID uuid.UUID,
 		newStatus TaskRunStatus,
 	) (bool, error)
+
+	// Worker
 	MarkTaskRunRunning(
 		ctx context.Context,
 		taskRunID uuid.UUID,
@@ -159,7 +165,13 @@ type TaskRunStoreInternal interface {
 		startedAt time.Time,
 	) (bool, TaskRun, error)
 
+	// Task Schedule
 	GetPredecessorTaskRuns(ctx context.Context, taskRunID uuid.UUID) ([]TaskRun, error)
+
+	// Task Resolver
+	DecrementNumberOfIncompleteTask(ctx context.Context, taskRunID uuid.UUID) error
+
+	// Orchestrator
 	GetTimedOutTaskRuns(ctx context.Context) ([]TaskRun, error)
 }
 

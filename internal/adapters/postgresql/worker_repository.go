@@ -33,9 +33,7 @@ func (repo *PostgresqlWorkerRepository) UpdateTaskRunByIDAndCreateTaskAttempt(
 	var tA task.TaskAttempt
 
 	err := repo.database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txRepo := &PostgresqlWorkerRepository{
-			database: tx,
-		}
+		txRepo := NewPostgresqlWorkerRepository(tx)
 
 		var err error
 
@@ -51,6 +49,13 @@ func (repo *PostgresqlWorkerRepository) UpdateTaskRunByIDAndCreateTaskAttempt(
 		tA, err = txRepo.CreateTaskAttempt(ctx, taskAttempt)
 		if err != nil {
 			return err
+		}
+
+		if tR.Status == task.TASK_RUN_COMPLETED {
+			err = txRepo.DecrementNumberOfIncompleteTask(ctx, taskRunID)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil

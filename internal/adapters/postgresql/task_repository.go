@@ -147,8 +147,32 @@ func (repo *PostgresTaskRepository) CreateTaskDependency(
 	ctx context.Context,
 	tDp task.TaskDependency,
 ) (task.TaskDependency, error) {
-	result := repo.database.WithContext(ctx).Create(&tDp)
-	return tDp, result.Error
+	err := repo.database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Raw(`
+			SELECT COUNT(*)
+			FROM task_definitions
+			JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id
+			WHERE task_definitions.id = ? AND workflow_definitions.status = ?`,
+			tDp.TaskID,
+			workflow.WORKFLOW_DEFINITION_EDITING,
+		).Scan(&count).Error; err != nil {
+			return err
+		}
+		if count == 0 {
+			return task.ErrWorkflowDefinitionNotEditing
+		}
+
+		if err := tx.Create(&tDp).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return task.TaskDependency{}, err
+	}
+	return tDp, nil
 }
 
 func (repo *PostgresTaskRepository) GetTaskDependenciesByWorkflowDefinition(
@@ -184,11 +208,11 @@ func (repo *PostgresTaskRepository) GetTaskDependencyByUserAndID(
 }
 
 func (repo *PostgresTaskRepository) filterTaskDependencyByUserAndID(
-	ctx context.Context,
+	db *gorm.DB,
 	userID uuid.UUID,
 	taskDependencyID uuid.UUID,
 ) *gorm.DB {
-	return repo.database.WithContext(ctx).Where(`EXISTS (
+	return db.Where(`EXISTS (
       SELECT 1
       FROM task_definitions
       JOIN workflow_definitions ON workflow_definitions.id = task_definitions.workflow_definition_id
@@ -210,12 +234,22 @@ func (repo *PostgresTaskRepository) UpdateTaskDependencyByUserAndID(
 	newTaskDependency map[string]any,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := repo.filterTaskDependencyByUserAndID(ctx, userID, taskDependencyID).
-		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
-		Clauses(clause.Returning{}).
-		Model(&tDp).
-		Updates(newTaskDependency)
-	return tDp, repository.CheckRowsAffected(result)
+	err := repo.database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := repo.filterTaskDependencyByUserAndID(tx, userID, taskDependencyID).
+			Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
+			Clauses(clause.Returning{}).
+			Model(&tDp).
+			Updates(newTaskDependency)
+		if err := repository.CheckRowsAffected(result); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return task.TaskDependency{}, err
+	}
+	return tDp, nil
 }
 
 func (repo *PostgresTaskRepository) SoftDeleteTaskDependency(
@@ -224,11 +258,21 @@ func (repo *PostgresTaskRepository) SoftDeleteTaskDependency(
 	taskDependencyID uuid.UUID,
 ) (task.TaskDependency, error) {
 	var tDp task.TaskDependency
-	result := repo.filterTaskDependencyByUserAndID(ctx, userID, taskDependencyID).
-		Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
-		Clauses(clause.Returning{}).
-		Delete(&tDp)
-	return tDp, repository.CheckRowsAffected(result)
+	err := repo.database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := repo.filterTaskDependencyByUserAndID(tx, userID, taskDependencyID).
+			Where("workflow_definitions.status = ?", workflow.WORKFLOW_DEFINITION_EDITING).
+			Clauses(clause.Returning{}).
+			Delete(&tDp)
+		if err := repository.CheckRowsAffected(result); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return task.TaskDependency{}, err
+	}
+	return tDp, nil
 }
 
 // TaskRun
@@ -446,6 +490,32 @@ func (repo *PostgresTaskRepositoryInternal) GetTaskDependenciesByWorkflowDefinit
 	return tDps, result.Error
 }
 
+func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskCountsByWorkflowDefinition(
+	ctx context.Context,
+	workflowDefinitionID uuid.UUID,
+) (map[uuid.UUID]uint, error) {
+	var counts []struct {
+		TaskID uuid.UUID
+		Count  uint
+	}
+	result := repo.database.WithContext(ctx).
+		Table("task_dependencies").
+		Joins("JOIN task_definitions ON task_definitions.id = task_dependencies.task_id AND task_definitions.deleted_at IS NULL").
+		Where("task_definitions.workflow_definition_id = ? AND task_dependencies.deleted_at IS NULL", workflowDefinitionID).
+		Select("task_dependencies.task_id AS task_id, COUNT(*) AS count").
+		Group("task_dependencies.task_id").
+		Scan(&counts)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	predecessorCounts := make(map[uuid.UUID]uint, len(counts))
+	for _, c := range counts {
+		predecessorCounts[c.TaskID] = c.Count
+	}
+	return predecessorCounts, nil
+}
+
 func (repo *PostgresTaskRepositoryInternal) HardDeleteTaskDependency(
 	ctx context.Context,
 	taskDependencyID uuid.UUID,
@@ -473,22 +543,9 @@ func (repo *PostgresTaskRepositoryInternal) GetTaskRunByID(
 ) (task.TaskRun, error) {
 	var tR task.TaskRun
 	result := repo.database.WithContext(ctx).
-		Preload("TaskDefinition").
 		Where("id = ?", taskRunID).
 		First(&tR)
 	return tR, result.Error
-}
-
-func (repo *PostgresTaskRepositoryInternal) GetTaskRunsByWorkflowRunID(
-	ctx context.Context,
-	workflowRunID uuid.UUID,
-) ([]task.TaskRun, error) {
-	var tRs []task.TaskRun
-	result := repo.database.WithContext(ctx).
-		Preload("TaskDefinition").
-		Where("workflow_run_id = ?", workflowRunID).
-		Find(&tRs)
-	return tRs, result.Error
 }
 
 func (repo *PostgresTaskRepositoryInternal) UpdateTaskRunByID(
@@ -532,6 +589,8 @@ func (repo *PostgresTaskRepositoryInternal) TaskRunIdempotency(
 	return result.RowsAffected == 1, result.Error
 }
 
+// Worker
+
 func (repo *PostgresTaskRepositoryInternal) MarkTaskRunRunning(
 	ctx context.Context,
 	taskRunID uuid.UUID,
@@ -552,19 +611,55 @@ func (repo *PostgresTaskRepositoryInternal) MarkTaskRunRunning(
 	return result.RowsAffected == 1, tR, result.Error
 }
 
+// Task Scheduler
+
 func (repo *PostgresTaskRepositoryInternal) GetPredecessorTaskRuns(
 	ctx context.Context,
 	taskRunID uuid.UUID,
 ) ([]task.TaskRun, error) {
 	var tRs []task.TaskRun
-	result := repo.database.WithContext(ctx).Raw(`
-		SELECT dep_tr.*
-    FROM task_runs tr
-    JOIN task_dependencies d ON d.task_id = tr.task_definition_id
-    JOIN task_runs dep_tr ON dep_tr.task_definition_id = d.depend_on_task_id AND dep_tr.workflow_run_id = tr.workflow_run_id
-    WHERE tr.id = ?`, taskRunID).Scan(&tRs)
+	result := repo.database.WithContext(ctx).
+		Table("task_runs AS tr").
+		Joins("JOIN task_dependencies ON task_dependencies.task_id = tr.task_definition_id").
+		Joins("JOIN task_runs AS dep_tr ON dep_tr.task_definition_id = task_dependencies.depend_on_task_id AND dep_tr.workflow_run_id = tr.workflow_run_id").
+		Where("tr.id = ?", taskRunID).Find(&tRs)
 	return tRs, result.Error
 }
+
+// Task Resolver
+
+func (repo *PostgresTaskRepositoryInternal) DecrementNumberOfIncompleteTask(
+	ctx context.Context,
+	taskRunID uuid.UUID,
+) error {
+	result := repo.database.WithContext(ctx).Exec(`
+		UPDATE task_runs tr
+		SET number_of_incomplete_predecessor_tasks = COALESCE(tr.number_of_incomplete_predecessor_tasks, 0) - 1
+		FROM task_dependencies d
+		JOIN task_runs dep_tr ON dep_tr.task_definition_id = d.depend_on_task_id
+		WHERE d.task_id = tr.task_definition_id
+		  AND d.deleted_at IS NULL
+		  AND tr.workflow_run_id = dep_tr.workflow_run_id
+		  AND dep_tr.id = ?
+		  AND COALESCE(tr.number_of_incomplete_predecessor_tasks, 0) > 0
+	`, taskRunID)
+
+	return result.Error
+}
+
+// Orchestrator
+
+func (repo *PostgresTaskRepositoryInternal) GetTimedOutTaskRuns(
+	ctx context.Context,
+) ([]task.TaskRun, error) {
+	var tRs []task.TaskRun
+	result := repo.database.WithContext(ctx).
+		Where("status = ? AND timeout_at < CURRENT_TIMESTAMP", task.TASK_RUN_RUNNING).
+		Find(&tRs)
+	return tRs, result.Error
+}
+
+// Task Attempt
 
 func (repo *PostgresTaskRepositoryInternal) CreateTaskAttempt(
 	ctx context.Context,
@@ -622,14 +717,4 @@ func (repo *PostgresTaskRepositoryInternal) UpdateTaskAttemptByID(
 		Model(&tA).
 		Updates(newTaskAttempt)
 	return tA, repository.CheckRowsAffected(result)
-}
-
-func (repo *PostgresTaskRepositoryInternal) GetTimedOutTaskRuns(
-	ctx context.Context,
-) ([]task.TaskRun, error) {
-	var tRs []task.TaskRun
-	result := repo.database.WithContext(ctx).
-		Where("status = ? AND timeout_at < CURRENT_TIMESTAMP", task.TASK_RUN_RUNNING).
-		Find(&tRs)
-	return tRs, result.Error
 }

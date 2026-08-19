@@ -55,6 +55,10 @@ type TaskDefinitionStoreInternal interface {
 }
 
 type TaskDependencyStoreInternal interface {
+	GetPredecessorTaskCountsByWorkflowDefinition(
+		ctx context.Context,
+		workflowDefinitionID uuid.UUID,
+	) (map[uuid.UUID]uint, error)
 }
 
 type TaskRunStoreInternal interface {

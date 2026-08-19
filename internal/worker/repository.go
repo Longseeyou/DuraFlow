@@ -33,6 +33,7 @@ type TaskRunStoreInternal interface {
 		attemptNumber uint,
 		startedAt time.Time,
 	) (bool, task.TaskRun, error)
+	DecrementNumberOfIncompleteTask(ctx context.Context, taskRunID uuid.UUID) error
 }
 
 type TaskAttemptStoreInternal interface {

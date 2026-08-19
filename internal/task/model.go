@@ -16,20 +16,21 @@ const (
 
 type TaskDefinition struct {
 	model.BaseModel
-	WorkflowDefinitionID uuid.UUID
-	WorkflowDefinition   workflow.WorkflowDefinition `json:"-"`
-	Name                 string
-	Description          string
-	TaskType             TaskType
-	Timeout              time.Duration
+	WorkflowDefinitionID     uuid.UUID
+	WorkflowDefinition       workflow.WorkflowDefinition `json:"-"`
+	Name                     string
+	Description              string
+	TaskType                 TaskType
+	Timeout                  time.Duration
+	NumberOfPredecessorTasks uint `         gorm:"not null;default:0"`
 }
 
 type TaskDependency struct {
 	model.BaseModel
 	TaskID         uuid.UUID      `gorm:"uniqueIndex:idx_task_dependency"`
-	Task           TaskDefinition `json:"-"`
+	Task           TaskDefinition `                                       json:"-"`
 	DependOnTaskID uuid.UUID      `gorm:"uniqueIndex:idx_task_dependency"`
-	DependOnTask   TaskDefinition `json:"-"`
+	DependOnTask   TaskDefinition `                                       json:"-"`
 }
 
 type TaskRunStatus string
@@ -71,18 +72,19 @@ func ValidPreviousTaskRunStatus(newStatus TaskRunStatus) []TaskRunStatus {
 
 type TaskRun struct {
 	model.BaseModel
-	WorkflowRunID    uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
-	WorkflowRun      workflow.WorkflowRun `json:"-"`
-	TaskDefinitionID uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
-	TaskDefinition   TaskDefinition       `json:"-"`
-	Status           TaskRunStatus
-	RetryCount       uint
-	MaxRetries       uint
-	StartedAt        *time.Time
-	EndedAt          *time.Time
-	TimeoutAt        *time.Time
-	Input            *string
-	Output           *string
+	WorkflowRunID                      uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
+	WorkflowRun                        workflow.WorkflowRun `                                         json:"-"`
+	TaskDefinitionID                   uuid.UUID            `gorm:"uniqueIndex:idx_workflow_task_run"`
+	TaskDefinition                     TaskDefinition       `                                         json:"-"`
+	Status                             TaskRunStatus
+	RetryCount                         uint
+	MaxRetries                         uint
+	StartedAt                          *time.Time
+	EndedAt                            *time.Time
+	TimeoutAt                          *time.Time
+	Input                              *string
+	Output                             *string
+	NumberOfIncompletePredecessorTasks uint `gorm:"not null;default:0"`
 }
 
 type TaskAttemptStatus string
@@ -96,7 +98,7 @@ const (
 type TaskAttempt struct {
 	model.BaseModel
 	TaskRunID     uuid.UUID `gorm:"uniqueIndex:idx_task_attempt"`
-	TaskRun       TaskRun   `json:"-"`
+	TaskRun       TaskRun   `                                    json:"-"`
 	AttemptNumber uint      `gorm:"uniqueIndex:idx_task_attempt"`
 	WorkerID      string
 	Status        TaskAttemptStatus
