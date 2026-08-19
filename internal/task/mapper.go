@@ -10,13 +10,6 @@ func taskDefinitionModelToResponseDto(tD TaskDefinition) TaskDefinitionResponseD
 	return tDDto
 }
 
-func taskDependencyRequestDtoToModel(tDDto TaskDependencyRequestDto) TaskDependency {
-	var tD TaskDependency
-	tD.TaskID = tDDto.TaskID
-	tD.DependOnTaskID = tDDto.DependOnTaskID
-	return tD
-}
-
 func taskDependencyModelToResponseDto(tD TaskDependency) TaskDependencyResponseDto {
 	var tDDto TaskDependencyResponseDto
 	tDDto.BaseModelToResponseDto(tD)

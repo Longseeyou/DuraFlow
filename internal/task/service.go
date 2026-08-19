@@ -172,15 +172,15 @@ func (s *TaskService) CreateTaskDependency(
 	userID uuid.UUID,
 	dto TaskDependencyRequestDto,
 ) (TaskDependencyResponseDto, error) {
-	valid, err := s.isTaskDependencyValid(ctx, userID, dto.TaskID, dto.DependOnTaskID)
+	ok, err := s.isTaskDependencyValid(ctx, userID, dto.TaskID, dto.DependOnTaskID)
 	if err != nil {
 		return TaskDependencyResponseDto{}, err
 	}
-	if !valid {
+	if !ok {
 		return TaskDependencyResponseDto{}, fmt.Errorf("")
 	}
 
-	tDp := taskDependencyRequestDtoToModel(dto)
+	tDp := TaskDependency{TaskID: dto.TaskID, DependOnTaskID: dto.DependOnTaskID}
 
 	tDp, err = s.repository.CreateTaskDependency(ctx, tDp)
 	if err != nil {
