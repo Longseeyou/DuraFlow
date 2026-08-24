@@ -32,6 +32,7 @@ x-kafka-environment: &kafka-environment
   KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
   KAFKA_LOG_DIRS: /var/lib/kafka/data
   CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
 
 services:
   kafka-1:

@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	TaskCommandRequestTopic  = "TaskCommandRequest"
-	TaskCommandResponseTopic = "TaskCommandResponse"
+	TaskCommandRequestTopic = "TaskCommandRequest"
 
 	defaultRescuePollInterval = 5 * time.Second
 )
@@ -163,6 +162,10 @@ func (taskScheduler *TaskScheduler) ScheduleTask(ctx context.Context, taskRun *t
 
 		input[tDp.Name] = *tR.Output
 	}
+
+	// Expose the executing task's own name so executors can self-identify
+	// (e.g. a DDIM trainer derives its shard/round from "train-r1-s2-4").
+	input["__self"] = tD.Name
 
 	inputJSON, err := json.Marshal(input)
 	if err != nil {

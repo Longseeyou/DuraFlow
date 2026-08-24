@@ -17,24 +17,22 @@ type KafkaTaskPoller struct {
 }
 
 func NewKafkaTaskPoller(consumer message.Consumer) orchestrator.TaskPoller {
-	return KafkaTaskPoller{consumer: consumer}
+	return &KafkaTaskPoller{consumer: consumer}
 }
 
 type cdcTaskRunEvent struct {
-	Payload struct {
-		Op    string `json:"op"`
-		After struct {
-			ID               uuid.UUID          `json:"id"`
-			WorkflowRunID    uuid.UUID          `json:"workflow_run_id"`
-			TaskDefinitionID uuid.UUID          `json:"task_definition_id"`
-			Status           task.TaskRunStatus `json:"status"`
-			RetryCount       uint               `json:"retry_count"`
-			MaxRetries       uint               `json:"max_retries"`
-		} `json:"after"`
-	} `json:"payload"`
+	Op    string `json:"op"`
+	After struct {
+		ID               uuid.UUID          `json:"id"`
+		WorkflowRunID    uuid.UUID          `json:"workflow_run_id"`
+		TaskDefinitionID uuid.UUID          `json:"task_definition_id"`
+		Status           task.TaskRunStatus `json:"status"`
+		RetryCount       uint               `json:"retry_count"`
+		MaxRetries       uint               `json:"max_retries"`
+	} `json:"after"`
 }
 
-func (poller KafkaTaskPoller) PollTaskRun(
+func (poller *KafkaTaskPoller) PollTaskRun(
 	ctx context.Context,
 	numberOfTasks uint,
 ) ([]task.TaskRun, error) {
@@ -51,8 +49,8 @@ func (poller KafkaTaskPoller) PollTaskRun(
 			continue
 		}
 
-		op := event.Payload.Op
-		after := event.Payload.After
+		op := event.Op
+		after := event.After
 		if op != "c" && op != "u" && op != "r" {
 			msg.Ack()
 			continue

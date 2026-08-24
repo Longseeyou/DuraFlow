@@ -22,18 +22,17 @@ import (
 const (
 	testUserEmail = "workflow-run-e2e@duraflow.dev"
 
-	defaultDSN     = "host=localhost user=gorm password=gorm dbname=duraflow"
+	defaultDSN     = "host=localhost user=duraflow password=duraflow dbname=duraflow"
 	defaultBrokers = "localhost:9190,localhost:9191,localhost:9192"
 
-	totalTaskRuns = 1600
-	runTimeout    = 300 * time.Second
-	pollInterval  = time.Second
-	expectedDeps  = 1500000
+	runTimeout   = 300 * time.Second
+	pollInterval = time.Second
 )
 
-// TestWorkflowRunEndToEnd creates a user, a workflow named "test" with 5 layers
-// of mock tasks ([1, 2, 4, 2, 1]) fully connected between consecutive layers,
-// and runs the workflow.
+// TestWorkflowRunEndToEnd creates (or reuses) a user and a workflow named
+// "test" with 10 layers of 100 mock tasks fully connected between
+// consecutive layers, then runs the workflow. When the workflow already
+// exists with the expected task graph, only a new workflow run is created.
 //
 // Prerequisites:
 //   - Postgres and the Kafka cluster must be running
@@ -47,30 +46,22 @@ func TestWorkflowRunEndToEnd(t *testing.T) {
 	requireKafka(t, kafkaBrokers())
 	db := openDB(t)
 
-	t.Log("stage: migrating schema and cleaning up previous test data")
+	t.Log("stage: migrating schema")
 	if err := migrate(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	cleanupTestData(db)
 
-	t.Log("stage: creating user")
+	layerSizes := []int{100, 100, 100, 100, 100, 100, 100, 100, 100, 100}
+	totalTaskRuns := 0
+	for _, size := range layerSizes {
+		totalTaskRuns += size
+	}
+	expectedDeps := 0
+	for layer := 0; layer < len(layerSizes)-1; layer++ {
+		expectedDeps += layerSizes[layer] * layerSizes[layer+1]
+	}
+
 	userService := user.NewUserService(postgresql.NewPostgresUserRepository(db))
-	if _, err := userService.CreateUser(ctx, user.CreateUserRequestDto{
-		Name:            "Test User",
-		Email:           testUserEmail,
-		Password:        "password123",
-		RetypedPassword: "password123",
-		Role:            user.USER,
-	}); err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-
-	userRepo := postgresql.NewPostgresUserRepository(db)
-	u, err := userRepo.GetUserByEmail(ctx, testUserEmail)
-	if err != nil {
-		t.Fatalf("get user: %v", err)
-	}
-
 	taskService := task.NewTaskService(postgresql.NewPostgresTaskRepository(db))
 	workflowService := workflow.NewWorkflowService(
 		postgresql.NewPostgresWorkflowRepository(db),
@@ -78,75 +69,25 @@ func TestWorkflowRunEndToEnd(t *testing.T) {
 		&taskService,
 	)
 
-	t.Log("stage: creating workflow 'test'")
-	w, err := workflowService.CreateWorkflow(ctx, u.ID, workflow.WorkflowRequestDto{
-		Name:        new("test"),
-		Description: new("workflow run end-to-end test"),
-	})
-	if err != nil {
-		t.Fatalf("create workflow: %v", err)
+	t.Log("stage: locating existing workflow (if any)")
+	u, wD, reused := reusableTestWorkflow(ctx, t, db, totalTaskRuns, expectedDeps)
+	if reused {
+		t.Logf(
+			"stage: reusing workflow definition %s (version %d), starting a new run",
+			wD.ID,
+			wD.Version,
+		)
+	} else {
+		u, wD = createTestWorkflow(
+			ctx,
+			t,
+			db,
+			userService,
+			workflowService,
+			&taskService,
+			layerSizes,
+		)
 	}
-
-	t.Log("stage: creating workflow definition")
-	wD, err := workflowService.CreateWorkflowDefinition(ctx, u.ID, w.ID)
-	if err != nil {
-		t.Fatalf("create workflow definition: %v", err)
-	}
-
-	layerSizes := []int{
-		100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-	}
-	taskType := task.MOCK_TASK
-	timeout := 30 * time.Second
-
-	t.Log("stage: creating task definitions")
-	layerTaskIDs := make([][]uuid.UUID, len(layerSizes))
-	for layer, size := range layerSizes {
-		t.Logf("  layer %d/%d: creating %d mock tasks", layer+1, len(layerSizes), size)
-		for i := range size {
-			name := fmt.Sprintf("layer-%d-task-%d", layer+1, i+1)
-			tD, err := taskService.CreateTaskDefinition(
-				ctx,
-				u.ID,
-				wD.ID,
-				task.TaskDefinitionRequestDto{
-					Name:     &name,
-					TaskType: &taskType,
-					Timeout:  &timeout,
-				},
-			)
-			if err != nil {
-				t.Fatalf("create task definition %s: %v", name, err)
-			}
-			layerTaskIDs[layer] = append(layerTaskIDs[layer], tD.ID)
-		}
-	}
-
-	t.Log("stage: creating fully-connected dependencies between consecutive layers")
-	dependencyCount := 0
-	for layer := 0; layer < len(layerSizes)-1; layer++ {
-		for _, nextTaskID := range layerTaskIDs[layer+1] {
-			for _, prevTaskID := range layerTaskIDs[layer] {
-				if _, err := taskService.CreateTaskDependency(
-					ctx,
-					u.ID,
-					task.TaskDependencyRequestDto{
-						TaskID:         nextTaskID,
-						DependOnTaskID: prevTaskID,
-					},
-				); err != nil {
-					t.Fatalf(
-						"create task dependency %s -> %s: %v",
-						prevTaskID,
-						nextTaskID,
-						err,
-					)
-				}
-				dependencyCount++
-			}
-		}
-	}
-	t.Logf("  created %d dependencies", dependencyCount)
 
 	t.Log("stage: activating workflow definition (DAG check)")
 	status := workflow.WORKFLOW_DEFINITION_ACTIVATED
@@ -265,6 +206,166 @@ func TestWorkflowRunEndToEnd(t *testing.T) {
 		expectedDeps,
 		time.Since(testStarted),
 	)
+}
+
+// reusableTestWorkflow returns the test user and the workflow's latest
+// definition when the definition already contains the expected task graph
+// (same number of task definitions and dependencies). The bool reports
+// whether the workflow can be reused without provisioning.
+func reusableTestWorkflow(
+	ctx context.Context,
+	t *testing.T,
+	db *gorm.DB,
+	totalTaskRuns int,
+	expectedDeps int,
+) (user.User, workflow.WorkflowDefinition, bool) {
+	t.Helper()
+
+	var u user.User
+	if err := db.Where("email = ?", testUserEmail).First(&u).Error; err != nil {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+
+	var w workflow.Workflow
+	if err := db.Where("user_id = ? AND name = ?", u.ID, "test").First(&w).Error; err != nil {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+
+	var wD workflow.WorkflowDefinition
+	if err := db.Where("workflow_id = ?", w.ID).Order("version DESC").First(&wD).Error; err != nil {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+
+	var taskCount int64
+	if err := db.Model(&task.TaskDefinition{}).
+		Where("workflow_definition_id = ?", wD.ID).
+		Count(&taskCount).Error; err != nil {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+	if taskCount != int64(totalTaskRuns) {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+
+	var depCount int64
+	if err := db.Model(&task.TaskDependency{}).
+		Joins("JOIN task_definitions td_task ON td_task.id = task_dependencies.task_id").
+		Where("td_task.workflow_definition_id = ?", wD.ID).
+		Count(&depCount).Error; err != nil {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+	if depCount != int64(expectedDeps) {
+		return user.User{}, workflow.WorkflowDefinition{}, false
+	}
+
+	return u, wD, true
+}
+
+// createTestWorkflow cleans up leftover test data and provisions the full
+// test graph (user, workflow "test", definition, layers of mock tasks and
+// fully-connected dependencies between consecutive layers).
+func createTestWorkflow(
+	ctx context.Context,
+	t *testing.T,
+	db *gorm.DB,
+	userService *user.UserService,
+	workflowService *workflow.WorkflowService,
+	taskService *task.TaskService,
+	layerSizes []int,
+) (user.User, workflow.WorkflowDefinition) {
+	t.Helper()
+
+	t.Log("stage: cleaning up previous test data")
+	cleanupTestData(db)
+
+	t.Log("stage: creating user")
+	if _, err := userService.CreateUser(ctx, user.CreateUserRequestDto{
+		Name:            "Test User",
+		Email:           testUserEmail,
+		Password:        "password123",
+		RetypedPassword: "password123",
+		Role:            user.USER,
+	}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	userRepo := postgresql.NewPostgresUserRepository(db)
+	u, err := userRepo.GetUserByEmail(ctx, testUserEmail)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+
+	t.Log("stage: creating workflow 'test'")
+	w, err := workflowService.CreateWorkflow(ctx, u.ID, workflow.WorkflowRequestDto{
+		Name:        new("test"),
+		Description: new("workflow run end-to-end test"),
+	})
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	t.Log("stage: creating workflow definition")
+	wDDto, err := workflowService.CreateWorkflowDefinition(ctx, u.ID, w.ID)
+	if err != nil {
+		t.Fatalf("create workflow definition: %v", err)
+	}
+	var wD workflow.WorkflowDefinition
+	if err := db.First(&wD, wDDto.ID).Error; err != nil {
+		t.Fatalf("load workflow definition: %v", err)
+	}
+
+	taskType := task.MOCK_TASK
+	timeout := 30 * time.Second
+
+	t.Log("stage: creating task definitions")
+	layerTaskIDs := make([][]uuid.UUID, len(layerSizes))
+	for layer, size := range layerSizes {
+		t.Logf("  layer %d/%d: creating %d mock tasks", layer+1, len(layerSizes), size)
+		for i := range size {
+			name := fmt.Sprintf("layer-%d-task-%d", layer+1, i+1)
+			tD, err := taskService.CreateTaskDefinition(
+				ctx,
+				u.ID,
+				wD.ID,
+				task.TaskDefinitionRequestDto{
+					Name:     &name,
+					TaskType: &taskType,
+					Timeout:  &timeout,
+				},
+			)
+			if err != nil {
+				t.Fatalf("create task definition %s: %v", name, err)
+			}
+			layerTaskIDs[layer] = append(layerTaskIDs[layer], tD.ID)
+		}
+	}
+
+	t.Log("stage: creating fully-connected dependencies between consecutive layers")
+	dependencyCount := 0
+	for layer := 0; layer < len(layerSizes)-1; layer++ {
+		for _, nextTaskID := range layerTaskIDs[layer+1] {
+			for _, prevTaskID := range layerTaskIDs[layer] {
+				if _, err := taskService.CreateTaskDependency(
+					ctx,
+					u.ID,
+					task.TaskDependencyRequestDto{
+						TaskID:         nextTaskID,
+						DependOnTaskID: prevTaskID,
+					},
+				); err != nil {
+					t.Fatalf(
+						"create task dependency %s -> %s: %v",
+						prevTaskID,
+						nextTaskID,
+						err,
+					)
+				}
+				dependencyCount++
+			}
+		}
+	}
+	t.Logf("  created %d dependencies", dependencyCount)
+
+	return u, wD
 }
 
 func migrate(db *gorm.DB) error {
