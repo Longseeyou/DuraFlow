@@ -46,7 +46,10 @@ func main() {
 
 	db, err := gorm.Open(
 		postgres.Open(
-			envString("DATABASE_DSN", "host=localhost user=gorm password=gorm dbname=duraflow"),
+			envString(
+				"DATABASE_DSN",
+				"host=localhost user=duraflow password=duraflow dbname=duraflow",
+			),
 		),
 		&gorm.Config{},
 	)
@@ -90,8 +93,6 @@ func main() {
 		"orchestrator started",
 		"task_command_topic",
 		orchestrator.TaskCommandRequestTopic,
-		"task_command_response_topic",
-		orchestrator.TaskCommandResponseTopic,
 	)
 
 	go scheduler.Run(ctx)

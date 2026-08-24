@@ -35,14 +35,13 @@ func main() {
 		envString("WORKER_GROUP_ID", "workers"),
 		[]string{orchestrator.TaskCommandRequestTopic},
 	)
-	producer := kafka.NewKafkaProducer(
-		envString("WORKER_PRODUCER_ID", "worker-0"),
-		&kafkaConfig,
-	)
 
 	db, err := gorm.Open(
 		postgres.Open(
-			envString("DATABASE_DSN", "host=localhost user=gorm password=gorm dbname=duraflow"),
+			envString(
+				"DATABASE_DSN",
+				"host=localhost user=duraflow password=duraflow dbname=duraflow",
+			),
 		),
 		&gorm.Config{},
 	)
@@ -61,20 +60,9 @@ func main() {
 		}
 	}()
 
-	if err := producer.Start(ctx); err != nil {
-		slog.Error("start producer", "error", err)
-		os.Exit(1)
-	}
-	defer func() {
-		if err := producer.Stop(); err != nil {
-			slog.Error("stop producer", "error", err)
-		}
-	}()
-
 	w := worker.NewWorker(
 		envString("WORKER_ID", "worker-0"),
 		consumer,
-		producer,
 		postgresql.NewPostgresqlWorkerRepository(db),
 	)
 
