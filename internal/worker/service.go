@@ -15,20 +15,17 @@ import (
 type Worker struct {
 	workerID   string
 	consumer   message.Consumer
-	producer   message.Producer
 	repository WorkerRepository
 }
 
 func NewWorker(
 	workerID string,
 	consumer message.Consumer,
-	producer message.Producer,
 	repository WorkerRepository,
 ) Worker {
 	return Worker{
 		workerID:   workerID,
 		consumer:   consumer,
-		producer:   producer,
 		repository: repository,
 	}
 }
